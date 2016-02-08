@@ -17,7 +17,11 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# TODO get a list of repos from github? now, just present a list
+# This uses ONE repository (appdirs) in the GitHub OpenVnmrJ organization
+# It'll pull down or update thi repisitory.
+# Each directory will hold one appdir, which then could be enabled or disabled
+# The script will update the file ~vnmrsys/TODO and append the appdir so
+# the GUI only needs to activate
 
 set -o nounset
 #set -e
@@ -30,7 +34,9 @@ or     `basename $0` -h to show this help
 OPTIONS
 =======
     -r
-      repository to use, if not specified, shows this help. See below.
+      repository to use. By default "appdirs" is the repository.
+    -b
+      branch to use. By default the master (stable) branch is used. 
     -p
       path to directory for repository. Default is ~/vnmrsys/openvnmrj
     -u
@@ -40,21 +46,8 @@ OPTIONS
     -h
       show help and exit
     -v
-      output list of repositories at end
+      output list of appliation directories
 
-REPOSITORIES
-============
-  The repository specified can be one of:
-  appdir: contributed application directories
-  bin: contributed binaries
-  fidlib: contributed FIDs
-  imaging: contributions for imaging
-  maclib: contributed macros
-  psglib: contributed pulse sequences
-  shapelib: contributed waveform shapes
-  templates: contributed templates
-  wtlib: weighting functions
-  misc: miscellaneous contributions
 
 GITHUB USERNAME
 ===============
@@ -131,15 +124,20 @@ githubuser="OpenVnmrJ"
 
 useHTTPS=0
 verbose=0 
-repo=
+repo=appdirs
+localbranch="local"
 
 if [[ $? != 0 ]] ; then showhelp; exit 1 ; fi
 
 while getopts “hHr:u:p:v” option; do	
   case $option in
     r)
-      # repository to use, if not specified, uses maclib 
+      # repository to use, if not specified, uses appdirs
       repo=${OPTARG}
+      ;;
+    b)
+      # branch to use, if not specified, uses "local" if not pulling from OpenVnmrJ
+      localbranch=${OPTARG}
       ;;
     p)
       #  path to directory; not in help
@@ -169,9 +167,8 @@ while getopts “hHr:u:p:v” option; do
   esac
 done
 
-repos=( appdir bin fidlib imaging maclib psglib shapelib templates wtlib misc )
-contains ${repo} "${repos[@]}" || { echo -e "Cannot find ${repo} in list\n ${repos[@]}"; showhelp ; exit 1; }
-
+# check for git
+command -v git >/dev/null 2>&1 || { installgit; exit 1; }
 
 # https repo might ask for keys if credential helper is not available
 # ssh repo needs keypairs set up
@@ -186,15 +183,17 @@ else
   upstream_repo_url="https://github.com/OpenVnmrJ/${repo}.git"
 fi
   
-localbranch="local"
 if [[ ${githubuser} == "OpenVnmrJ" ]]; then
   repodir="${ovjhome}/${repo}"
 else
   repodir="${ovjhome}/${repo}-${localbranch}"
 fi
 
-# check for git
-command -v git >/dev/null 2>&1 || { installgit; exit 1; }
+API_URL="https://api.github.com/users/${githubuser}/repos?type=owner"
+repos=$(curl -s "$API_URL" | grep -Eo '"git_url": "[^"]+"' | awk '{print $2}')
+echo ${repos[@]}
+#repos=( appdirs )
+contains ${repo} "${repos[@]}" || { echo -e "Cannot find ${repo} in list\n ${repos[@]}"; showhelp ; exit 1; }
 
 # check for git repo
 git ls-remote "${repo_url}" >/dev/null 2>&1 || { badrepo "${repo_url}"; exit 1; }
@@ -213,20 +212,21 @@ if [[ -d "${repodir}" ]]; then
   if [[ -d .git ]]; then
     echo "Updating repository from ${repo_url}"
     git pull origin || { badrepo "${repo_url}"; exit 1; }
-    git fetch --all
+    git fetch --all || { echo "error in git fetch" ; exit 1; }
+# do we already have a local branch
     git show-ref --verify --quiet refs/heads/"${localbranch}"
     if [[ $? == 0 ]]; then
-      git checkout -b ${localbranch}
+      git checkout -b ${localbranch} || { echo "error in making new branch ${localbranch}"; exit 1; }
     else
-      git checkout ${localbranch}
+      git checkout ${localbranch} || { echo "error in changing to branch ${localbranch}"; exit 1; }
     fi
   else
 # we have a directory but no repository
     git clone ${repo_url} "${repodir}" . || { badrepo "${repo_url}"; exit 1; }
-    git remote add upstream ${upstream_repo_url}
+    git remote add upstream ${upstream_repo_url} || { echo "error in adding upstream ${upstream_repo_url}"; exit 1; }
     git fetch --all
     git fetch --tags
-    git checkout -b ${localbranch}
+    git checkout -b ${localbranch} || { echo "error in making new branch ${localbranch}"; exit 1; }
   fi
 else
   if [[ ! -d "${ovjhome}" ]]; then
@@ -241,42 +241,46 @@ else
   echo "Cloning repository from ${repo_url}"
   git clone ${repo_url} "${repodir}" || { badrepo "${repo_url}"; exit 1; }
   cd "${repodir}"
-  git remote add upstream ${upstream_repo_url}
+  git remote add upstream ${upstream_repo_url} || { echo "error in adding upstream ${upstream_repo_url}"; exit 1; }
   git fetch --all
   git fetch --tags
-  git checkout -b ${localbranch}
+  git checkout -b ${localbranch} || { echo "error in making new branch ${localbranch}"; exit 1; }
 fi
 # at this point we have a repo in "${repodir}" and on the correct branch
-tags=$(git tag -l)
-
+# All the appdirs are directories
 cd "${repodir}"
+appdirs=$(find . -maxdepth 1 -type d -exec basename {} \; | grep -v "^\.")
+
 extractdir=${ovjhome}/.extract
-rm -rf ${extractdir}
+if [[ -d "${extractdir}" ]]; then
+  rm -rf ${extractdir}
+fi
 mkdir ${extractdir}
-for tag in ${tags}; do
-  printf "%s\n" ${tag} >> ${extractdir}/list
-  git --no-pager log  --pretty=format:"%b" ${tag} > ${extractdir}/${tag}
+for dir in ${appdirs}; do
+  title=$(head -1 "${dir}/title")
+  echo -e "${title}\n"  >> "${extractdir}/list"
+#  git --no-pager log  --pretty=format:"%b" ${tag} > ${extractdir}/${tag}
+  cat "${dir}/description" > "${extractdir}/title"
 done
 
 if (( $verbose == 1 )); then
   underline="====================================================================="
-  for tag in ${tags}; do
-    echo -e "\n\n${tag}"
-    echo -e "${underline:0:${#tag}}\n"
-    git --no-pager log  --pretty=format:"%b" ${tag}
+  for dir in ${appdirs}; do
+    title=$(head -1 "${dir}/title")
+    echo -e "\n\n${title}"
+    echo -e "${underline:0:${#title}}\n"
+    cat "${dir}/description"
+#    git --no-pager log  --pretty=format:"%b" ${tag}
   done
 #for b in "`git branch`"; do echo "$b"; done | tr -d "*" | xargs gitk&
 #gitk --all &
 
   echo -e "\n${underline}\n"
   cat <<-%
-The contributions of the repository are listed above with tag name and descripton.
+The contributions of the repository are listed above with title and descripton.
 
-To access any contribution, checkout the tag
-git checkout name-v1.0
-
-You may also cherry pick a tag to keep multiple contributions
-git cherry-pick name-v1.0
+To access any contribution, enable the contribution within OpenVnmrJ by 
+selecting "edit>Applications…"
 
 If you have any questions, check the README.md file or check online
 https://github.com/OpenVnmrJ
