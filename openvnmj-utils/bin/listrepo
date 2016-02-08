@@ -190,10 +190,12 @@ else
 fi
 
 API_URL="https://api.github.com/users/${githubuser}/repos?type=owner"
-repos=$(curl -s "$API_URL" | grep -Eo '"git_url": "[^"]+"' | awk '{print $2}')
-echo ${repos[@]}
+#API_URL="https://api.github.com/orgs/${githubuser}/repos?type=owner"
+repos=($(curl -s "$API_URL" | grep -Eo '"git_url": "[^"]+"' | awk '{print $2}' | awk -F"/" '{print $NF}' | sed 's/\.git"//'))
+#echo -e "${API_URL}\n"
+#printf ".%s.\n" ${repos[@]}
 #repos=( appdirs )
-contains ${repo} "${repos[@]}" || { echo -e "Cannot find ${repo} in list\n ${repos[@]}"; showhelp ; exit 1; }
+contains "${repo}" "${repos[@]}" || { echo -e "Cannot find ${repo} in list\n${repos[@]}"; showhelp ; exit 1; }
 
 # check for git repo
 git ls-remote "${repo_url}" >/dev/null 2>&1 || { badrepo "${repo_url}"; exit 1; }
@@ -201,7 +203,6 @@ git ls-remote "${repo_url}" >/dev/null 2>&1 || { badrepo "${repo_url}"; exit 1; 
 # after repo is here, we'll switch to a local branch to keep master clean
 #localbranch="local-$(uname -n)"
 
-echo "Repository will be cloned into ${repodir}"
 if [[ -d "${repodir}" ]]; then
   if [[ ! -w "${repodir}" ]]; then
     echo "${repodir} is not writable. Exiting."
@@ -211,17 +212,23 @@ if [[ -d "${repodir}" ]]; then
   cd "${repodir}" || { echo "cd ${repodir} failed. Aborting"; exit 1; }
   if [[ -d .git ]]; then
     echo "Updating repository from ${repo_url}"
-    git pull origin || { badrepo "${repo_url}"; exit 1; }
+    git show-ref --verify --quiet refs/heads/"${localbranch}"
+    if [[ $? == 0 ]]; then
+      git pull origin ${localbranch} || { git pull origin master; }
+    else
+      git pull origin master || { badrepo "${repo_url}"; exit 1; }
+    fi
     git fetch --all || { echo "error in git fetch" ; exit 1; }
 # do we already have a local branch
     git show-ref --verify --quiet refs/heads/"${localbranch}"
     if [[ $? == 0 ]]; then
-      git checkout -b ${localbranch} || { echo "error in making new branch ${localbranch}"; exit 1; }
+      git checkout  ${localbranch} || { echo "error in making new branch ${localbranch}"; exit 1; }
     else
-      git checkout ${localbranch} || { echo "error in changing to branch ${localbranch}"; exit 1; }
+      git checkout -b ${localbranch} || { echo "error in changing to branch ${localbranch}"; exit 1; }
     fi
   else
 # we have a directory but no repository
+    echo "Repository will be cloned into ${repodir}"
     git clone ${repo_url} "${repodir}" . || { badrepo "${repo_url}"; exit 1; }
     git remote add upstream ${upstream_repo_url} || { echo "error in adding upstream ${upstream_repo_url}"; exit 1; }
     git fetch --all
@@ -257,19 +264,33 @@ if [[ -d "${extractdir}" ]]; then
 fi
 mkdir ${extractdir}
 for dir in ${appdirs}; do
-  title=$(head -1 "${dir}/title")
+  if [[ -f "${dir}/title" ]]; then
+    title=$(head -1 "${dir}/title")
+  else
+    title=${dir}
+  fi
   echo -e "${title}\n"  >> "${extractdir}/list"
 #  git --no-pager log  --pretty=format:"%b" ${tag} > ${extractdir}/${tag}
-  cat "${dir}/description" > "${extractdir}/title"
+  if [[ -f "${dir}/description" ]]; then
+    cat "${dir}/description" > "${extractdir}/title"
+  else
+    echo -e "No description for ${title}\n" > "${extractdir}/title"
+  fi
 done
 
 if (( $verbose == 1 )); then
   underline="====================================================================="
   for dir in ${appdirs}; do
-    title=$(head -1 "${dir}/title")
+    if [[ -f "${dir}/title" ]]; then
+      title=$(head -1 "${dir}/title")
+   else
+      title=${dir}
+    fi
     echo -e "\n\n${title}"
     echo -e "${underline:0:${#title}}\n"
-    cat "${dir}/description"
+    if [[ -f "${dir}/description" ]]; then
+     cat "${dir}/description"
+    fi
 #    git --no-pager log  --pretty=format:"%b" ${tag}
   done
 #for b in "`git branch`"; do echo "$b"; done | tr -d "*" | xargs gitk&
