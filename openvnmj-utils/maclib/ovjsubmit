@@ -1,0 +1,62 @@
+" ovjsubmit - macro to handle OpenVnmrJ submissions"
+
+if ($# = 0) then
+  create('gitDir','string','global','')
+  create('gitName','string','global','')
+  create('gitUser','string','global','')
+  create('gitTitle','string','global','')
+  setgroup('gitDir','display','global')
+  setgroup('gitName','display','global')
+  setgroup('gitUser','display','global')
+  setgroup('gitTitle','display','global')
+  setprotect('gitDir','on',32768,'global')
+  setprotect('gitName','on',32768,'global')
+  setprotect('gitUser','on',32768,'global')
+  setprotect('gitTitle','on',32768,'global')
+
+  exists('gitsubmit.xml','templates/vnmrj/interface'):$e,$xmlfile
+  
+  vnmrjcmd('popup', 'mode:modal', 'file:'+$xmlfile, 'rebuild:yes', \
+   'location:topMenuBar', \
+   'pnewupdate:true', 'cancel:'+$0+'(`cancel`)', 'ok:'+$0+'(`ok`)', \
+   'title:Application Directories')
+
+elseif ($1 = 'ok') then
+  if (gitDir='') or (gitName='') or (gitUser='') or (gitTitle='') then
+    if (gitDir='') then
+      write('line3','Applications directory for submission not specified')
+    endif
+    if (gitName='') then
+      write('line3','Submission name not specified')
+    endif
+    if (gitUser='') then
+      write('line3','Submission User not specified')
+    endif
+    if (gitTitle='') then
+      write('line3','Submission Title not specified')
+    endif
+    return
+  endif
+  exists(gitDir,'directory'):$e
+  if ($e=0) then
+    write('line3','Applications directory for submission does not exist')
+    return
+  endif
+  exists(gitDir+'/README.md','file'):$e
+  if ($e=0) then
+    write('line3','README file for submission does not exist')
+    return
+  endif
+  $lpath=userdir+'/openvnmrj/LICENSE'
+  $lpath=userdir+'/openvnmrj/maclib/LICENSE'
+  exists($lpath,'file'):$e
+  if ($e=0) then
+    write('line3','LICENSE file (%s) does not exist',$lpath)
+    return
+  endif
+  copy($lpath,gitDir+'/LICENSE')
+  write('reset',gitDir+'/Title')
+  write('file',gitDir+'/Title','%s',gitTitle)
+  chkname(gitName,'alnum'):$name
+  write('line3','submitcontribution -r "%s" -name %s -u "%s"',gitDir,$name,gitUser)
+endif
