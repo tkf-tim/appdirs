@@ -1,0 +1,1261 @@
+" fplot1d - fancy 1D plotting (primarily for insets) "
+
+/* interface functions to help the GUI
+  init			creates all the variables
+  reset			resets all variables to default values
+  purge			destroys all the variables
+  load			load variables from a file
+  save			save variables to a file
+  selectMain	select the main plot region
+  selectMainVert	select region for main spectrum vsadj
+  selectCompVert	select region for comparison spectrum vsadj
+  selectInsetVert	select region for inset spectra vsadj
+  selectHorizReg	select horiz region for printing insets
+  fixHorizReg	ensure Horiz region is within the Main plot sw
+  fixRef		ensure the ref frequency matches MainExp
+  selectInset	select an inset region
+  showInset		show list of insets
+  clearInset	clear list of insets
+  preview		create a pdf preview using the current settings
+  conv2ppm		conv sp/wp style variables into ppm1/ppm2 style
+				fplot1d('conv2ppm',sp,wp):ppm1,ppm2
+  convFromppm	conv ppm1/ppm2 style variables into sp/wp style
+				fplot1d('convFromppm',ppm1,ppm2):sp,wp 
+  join			jexp to the exp number given as the 2nd option
+
+  Note: the 'reset' function looks for files in tablib
+			fplot1dH1.dat
+			fplot1dC13.dat
+			fplot1dP31.dat
+			etc
+		based on tn. All appdir tablib's are searched.
+*/
+
+/* variables that are used in the GUI
+  fplot1dType			which type of plot: 'simple' or 'comparison'
+  fplot1dTitle			title to print on spectrum
+  fplot1dTitlePos[1]	where to plot title: 'top' or 'bottom'
+  fplot1dTitlePos[2]	where to plot title: 'left', 'center', or 'right'
+  fplot1dExpMain		position of main spectrum (assume that we start here)
+  fplot1dExpComp		position of comparison plot (e.g. DEPT-135)
+  fplot1dNegPeaks		cutoff negative peaks? 0=false, 1=true (e.g. DEPT-135)
+  fplot1dThick			line thickness in pt
+  fplot1dHRes			high res plot
+  fplot1dFsp			Full spectrum, start of plot
+  fplot1dFwp			Full spectrum, width of plot
+  fplot1dNumInsets		Number of insets to plot
+  fplot1dIsp[]			Inset spectra, start of plot
+  fplot1dIwp[]			Inset spectra, width of plot
+  fplot1dFVsp			Full spectrum, vsadj start of plot
+  fplot1dFVwp			Full spectrum, vsadj width of plot
+  fplot1dFVadj			Full spectrum, vsadj correction (percent)
+  fplot1dIVeach			Inset spectra, vsadj each inset? 0=false, 1=true
+  fplot1dIVsp			Inset spectra, vsadj start of plot
+  fplot1dIVwp			Inset spectra, vsadj width of plot
+  fplot1dIVadj			Inset spectra, vsadj correction (percent)
+  fplot1dIgap			Gap between insets (mm)
+  fplot1dIscale			Inset scale type: 'p' or 'h'
+  fplot1dIrows			Number of rows of insets (1 or 2)
+  fplot1dIheight		Inset y height (% of total height, for simple insets)
+  fplot1dIypos			Inset y position (% of total height, for comparison inset)
+  fplot1dIRsp			Inset start of horiz region for insets (relative to main plot)
+  fplot1dIRwp			Inset width of horiz region for insets (relative to main plot)
+  fplot1dIntVal			Integral values: 'none', 'piv', 'pivn'
+  fplot1dIntMod			Integral mode: 'off', 'partial', 'full'
+  fplot1dCypos			Comparison plot (DEPT) y position (% of total height)
+  fplot1dCygap			Gap between main plot and comparison plot axis (mm)
+  fplot1dCVsp			Comparison plot, vs adj, start of region
+  fplot1dCVwp			Comparison plot, vs adj, width of region
+  fplot1dCVadj			Comparison plot, vert scale adjustment
+
+  fplotTmpRef			Reference frequency of main spectrum
+  fplotTmpMsg			Temp variable used for popup windows
+  fplotTmpPath			Temp variable used for popup window
+  fplotTmpFile			Temp variable used for popup window
+ */
+
+//Initialize unless a specific option is given
+$op='init'
+if ($#) then
+	$op=$1
+endif
+
+format(solvent,'upper'):$solv
+
+if ($op = 'init') then //create our variables
+	//Note, ignore default values here, defaults set in 'reset'
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if ($is2d) then
+		write('error','not a 1D experiment!')
+		return(1)
+	endif
+
+	//need to create in global so they still exist when using jexp
+	create('fplot1dType','string','global','simple'):$e
+	setgroup('fplot1dType','display','global')
+	create('fplot1dTitle','string','global',pslabel+' in '+$solv):$e
+	setgroup('fplot1dTitle','display','global')
+	create('fplot1dTitlePos','string','global',''):$e
+	setgroup('fplot1dTitlePos','display','global')
+	fplot1dTitlePos[1]='top'
+	fplot1dTitlePos[2]='left'
+	create('fplot1dExpMain','integer','global',0):$e
+	setgroup('fplot1dExpMain','display','global')
+	//set fplot1dExpMain to global exp number
+	jexp:fplot1dExpMain
+	create('fplot1dExpComp','integer','global',fplot1dExpMain+1):$e
+	setgroup('fplot1dExpComp','display','global')
+	create('fplot1dNegPeaks','integer','global',0):$e
+	setgroup('fplot1dNegPeaks','display','global')
+	create('fplot1dThick','real','global',1):$e
+	setgroup('fplot1dThick','display','global')
+	create('fplot1dHRes','integer','global',1):$e
+	setgroup('fplot1dHRes','display','global')
+	create('fplot1dFsp','real','global',sp):$e
+	setgroup('fplot1dFsp','display','global')
+	create('fplot1dFwp','real','global',wp):$e
+	setgroup('fplot1dFwp','display','global')
+	create('fplot1dNumInsets','integer','global',0):$e
+	setgroup('fplot1dNumInsets','display','global')
+	create('fplot1dIsp','real','global',sp):$e
+	setgroup('fplot1dIsp','display','global')
+	create('fplot1dIwp','real','global',wp):$e
+	setgroup('fplot1dIwp','display','global')
+	create('fplot1dFVsp','real','global',sp):$e
+	setgroup('fplot1dFVsp','display','global')
+	create('fplot1dFVwp','real','global',wp):$e
+	setgroup('fplot1dFVwp','display','global')
+	create('fplot1dFVadj','real','global',1.0):$e
+	setgroup('fplot1dFVadj','display','global')
+	create('fplot1dIVeach','integer','global',1):$e
+	setgroup('fplot1dIVeach','display','global')
+	create('fplot1dIVsp','real','global',sp):$e
+	setgroup('fplot1dIVsp','display','global')
+	create('fplot1dIVwp','real','global',wp):$e
+	setgroup('fplot1dIVwp','display','global')
+	create('fplot1dIVadj','real','global',1):$e
+	setgroup('fplot1dIVadj','display','global')
+	create('fplot1dIgap','real','global',3):$e
+	setgroup('fplot1dIgap','display','global')
+	create('fplot1dIscale','string','global','h'):$e
+	setgroup('fplot1dIscale','display','global')
+	create('fplot1dIrows','integer','global',1):$e
+	setgroup('fplot1dIrows','display','global')
+	create('fplot1dIheight','real','global',0.25):$e
+	setgroup('fplot1dIheight','display','global')
+	create('fplot1dIypos','real','global',0.66):$e
+	setgroup('fplot1dIypos','display','global')
+	create('fplot1dIRsp','real','global',sp):$e
+	setgroup('fplot1dIRsp','display','global')
+	create('fplot1dIRwp','real','global',wp):$e
+	setgroup('fplot1dIRwp','display','global')
+	create('fplot1dIntVal','string','global','piv'):$e
+	setgroup('fplot1dIntVal','display','global')
+	create('fplot1dIntMod','string','global','none'):$e
+	setgroup('fplot1dIntMod','display','global')
+	create('fplot1dCypos','real','global',0.50):$e
+	setgroup('fplot1dCypos','display','global')
+	create('fplot1dCygap','real','global',20):$e
+	setgroup('fplot1dCygap','display','global')
+	create('fplot1dCVsp','real','global',sp):$e
+	setgroup('fplot1dCVsp','display','global')
+	create('fplot1dCVwp','real','global',wp):$e
+	setgroup('fplot1dCVwp','display','global')
+	create('fplot1dCVadj','real','global',0.67):$e
+	setgroup('fplot1dCVadj','display','global')
+	create('fplot1dRef','real','global',reffrq):$e
+	setgroup('fplot1dRef','display','global')
+	create('fplotTmpMsg','string','global',''):$e
+	setgroup('fplotTmpMsg','display','global')
+	create('fplotTmpPath','string','global',''):$e
+	setgroup('fplotTmpPath','display','global')
+	create('fplotTmpFile','string','global',''):$e
+	setgroup('fplotTmpFile','display','global')
+
+	//set default values
+	if ($#>1) then //open and load a specific data set
+		fplot1d('load',$2):$e
+		if ($e) then fplot1d('reset') endif
+	else
+		fplot1d('reset')
+	endif
+
+	exists('fplot1d.xml','templates/vnmrj/interface'):$e,$path
+	vnmrjcmd('popup', 'mode:modeless', 'file:'+$path, 'rebuild:yes', \
+	'location:topMenuBar', 'close:fplot1d(`purge`)', \
+	'title:Fancy 1D Plotting Tools')
+
+elseif ($op = 'test') then
+	write('line3','testing...')
+
+	write('line3',$0)
+	write('line3',$#)
+	if ($#>1) then
+		r1=size('$2')
+		write('line3',r1)
+	endif
+	
+	return
+
+elseif ($op = 'reset') then
+	//note - if vars already exist, create does nothing, so use
+	//this to set default values
+
+	//only change a few things when switching plot style
+	if ($#>1) then //only reset a select few
+		if ($2='simple') then
+			fplot1dFVadj=1
+			fplot1dIntVal='piv'
+			fplot1dIVeach=1
+			fplot1dIVadj=1
+			fplot1dIheight=0.25
+		elseif ($2='comparison') then
+			fplot1dFVadj=0.66
+			fplot1dCVadj=0.50
+			fplot1dIntVal='none'
+			if (tn='H1') then
+				//probably NOESY or TOCSY
+				fplot1dIVeach=0
+				fplot1dNegPeaks=1
+				fplot1dIVadj=1
+			else
+				fplot1dIVadj=0.5
+			endif
+			fplot1dIheight=0.33
+		endif
+
+	else //reset everything to default values
+
+		//first, look for appropriate default files in tablib
+		$path='tablib'
+		$file='fplot1d'+tn+'.dat'
+		exists($file,$path):$e,$path
+		if ($e) then //load the file
+			fplot1d('load',$path)
+		endif
+
+		//some things get reset even if a file loaded
+		$tmp=''
+		format(trunc(sfrq+0.5),4,0):$tmp
+		fplot1dTitle=$tmp+' MHz '+pslabel+' in '+$solv
+		jexp:fplot1dExpMain
+		fplot1dExpComp=fplot1dExpMain+1
+		fplot1d('fixRef')
+		//should I ensure that ExpComp exists and is unlocked?
+		fplot1dNumInsets=0
+		fplot1dFsp=sp
+		fplot1dFwp=wp
+		fplot1dFVsp=sp
+		fplot1dFVwp=wp
+		fplot1dIVsp=sp
+		fplot1dIVwp=wp
+		fplot1dCVsp=sp
+		fplot1dCVwp=wp
+		fplot1dIRsp=sp+0.25*wp
+		fplot1dIRwp=wp*0.75
+
+		//the rest of these are kept from the file
+		if ($e=0) then
+			fplot1dType='simple'
+			fplot1dTitlePos[1]='top'
+			fplot1dTitlePos[2]='center'
+			fplot1dNegPeaks=0
+			fplot1dThick=1
+			fplot1dHRes=1
+			fplot1dFVadj=1
+			fplot1dIVeach=1
+			fplot1dIVadj=1
+			fplot1dIgap=3
+			fplot1dIscale='h'
+			fplot1dIrows=1
+			fplot1dIheight=0.25
+			fplot1dIypos=0.67
+			fplot1dIntVal='piv'
+			fplot1dIntMod='none'
+			fplot1dCypos=0.50
+			fplot1dCygap=10
+			fplot1dCVadj=1
+
+			if (tn='C13') then //assume DEPT comparison
+				fplot1dType='comparison'
+				fplot1dIntVal='none' 
+				fplot1dHRes=0
+				fplot1dFVadj=0.66
+				fplot1dCVadj=0.50
+				fplot1dCypos=0.5
+				fplot1dIscale='p'
+				fplot1dIVeach=1
+				fplot1dIVadj=0.5
+				fplot1dIheight=0.33
+				fplot1dIypos=0.67
+				fplot1dIRsp=sp+0.5*wp
+				fplot1dIRwp=wp*0.5
+			endif
+		endif
+
+		fplotTmpMsg=''
+		fplotTmpPath=''
+		fplotTmpFile=''
+
+	endif //number of options
+
+	return
+
+elseif ($op = 'purge') then
+	//we don't want these permanently in the global tree
+	destroy('fplot1dType','global'):$e
+	destroy('fplot1dTitle','global'):$e
+	destroy('fplot1dTitlePos','global'):$e
+	destroy('fplot1dExpMain','global'):$e
+	destroy('fplot1dExpComp','global'):$e
+	destroy('fplot1dNegPeaks','global'):$e
+	destroy('fplot1dHRes','global'):$e
+	destroy('fplot1dThick','global'):$e
+	destroy('fplot1dFsp','global'):$e
+	destroy('fplot1dFwp','global'):$e
+	destroy('fplot1dNumInsets','global'):$e
+	destroy('fplot1dIsp','global'):$e
+	destroy('fplot1dIwp','global'):$e
+	destroy('fplot1dFVsp','global'):$e
+	destroy('fplot1dFVwp','global'):$e
+	destroy('fplot1dFVadj','global'):$e
+	destroy('fplot1dIVeach','global'):$e
+	destroy('fplot1dIVsp','global'):$e
+	destroy('fplot1dIVwp','global'):$e
+	destroy('fplot1dIVadj','global'):$e
+	destroy('fplot1dIgap','global'):$e
+	destroy('fplot1dIscale','global'):$e
+	destroy('fplot1dIrows','global'):$e
+	destroy('fplot1dIheight','global'):$e
+	destroy('fplot1dIypos','global'):$e
+	destroy('fplot1dIRsp','global'):$e
+	destroy('fplot1dIRwp','global'):$e
+	destroy('fplot1dIntVal','global'):$e
+	destroy('fplot1dIntMod','global'):$e
+	destroy('fplot1dCypos','global'):$e
+	destroy('fplot1dCygap','global'):$e
+	destroy('fplot1dCVsp','global'):$e
+	destroy('fplot1dCVwp','global'):$e
+	destroy('fplot1dCVadj','global'):$e
+	destroy('fplot1dRef','global'):$e
+	destroy('fplotTmpMsg','global'):$e
+	destroy('fplotTmpPath','global'):$e
+	destroy('fplotTmpFile','global'):$e
+
+elseif ($op = 'save') then
+	//save values to a file
+
+	if ($#>1) then //filename supplied
+		//check path
+		substr($2,'dirname'):$path
+		substr($2,'basename'):$file
+		if ($path='.') then //no path supplied assume tablib
+			$path=userdir+'/tablib'
+		endif
+		//check for relative path 
+		$first=''
+		substr($path,1,1):$first
+		if ($first<>'/') then
+			substr(userdir,'dirname'):$homedir
+			$path=$homedir+'/'+$path
+		endif
+		//check for bad path
+		exists($path,'directory'):$e
+		if ($e=0) then //doesn't exist
+			write('error','bad path:'+$path)
+			return(1)
+		endif
+
+		//check to see if $file exists and get confirmation...
+		$file=$path+'/'+$file
+		exists($file,'file'):$e
+		if ($e) then
+			fplotTmpMsg='This file exists!  Overwrite it?'
+			$okcmd='fplot1d(`save2`,`'+$file+'`)'
+			$cancelcmd=''
+
+			exists('fplotmessage.xml','templates/vnmrj/interface'):$e,$path
+			vnmrjcmd('popup', 'file:'+$path, \
+			'cancel:'+$cancelcmd, \
+			'ok:'+$okcmd, \
+			'title:Load Settings')
+		else
+			//create new file
+			fplot1d('save2',$file)
+		endif
+
+	else //have user select file
+		//there should be a generic file selector GUI...
+		//any way to use vnmrjcmd('LOC browserPanel')?
+
+		//for now, use our version
+		fplotTmpMsg='Save Plot Settings To A File'
+		if (fplotTmpPath='') then
+			fplotTmpPath=userdir+'/tablib'
+		endif
+		if (fplotTmpFile='') then
+			fplotTmpFile='plot.dat'
+		endif
+		$okcmd='fplot1d(`save`,fplotTmpPath+`/`+fplotTmpFile)'
+		$cancelcmd=''
+
+		exists('fplotfile.xml','templates/vnmrj/interface'):$e,$path
+		vnmrjcmd('popup', 'file:'+$path, \
+		'cancel:'+$cancelcmd, \
+		'ok:'+$okcmd, \
+		'title:Load Settings')
+	endif
+
+
+elseif ($op = 'save2') then
+	//We only get here after $2 has been verified
+	$file=$2
+	write('line3','saving fplot1d parameters to '+$file)
+
+	//Initialize the file
+	write('reset',$file)
+	write('file',$file,'fplot1d parameter set')
+	
+	//Save parameters as a name/val pair
+	write('file',$file,'Type %s',fplot1dType)
+	if (fplot1dTitle) then
+		write('file',$file,'Title %s',fplot1dTitle)
+	else //empty string - messes up load
+		write('file',$file,'Title %s','!!EMPTY!!TITLE!!')
+	endif
+	write('file',$file,'TitlePos1 %s',fplot1dTitlePos[1])
+	write('file',$file,'TitlePos2 %s',fplot1dTitlePos[2])
+	write('file',$file,'ExpMain %d',fplot1dExpMain)
+	write('file',$file,'ExpComp %d',fplot1dExpComp)
+	write('file',$file,'NegPeaks %d',fplot1dNegPeaks)
+	write('file',$file,'Thick %12.6f',fplot1dThick)
+	write('file',$file,'HRes %d',fplot1dHRes)
+	write('file',$file,'Fsp %12.6f',fplot1dFsp)
+	write('file',$file,'Fwp %12.6f',fplot1dFwp)
+	write('file',$file,'FVsp %12.6f',fplot1dFVsp)
+	write('file',$file,'FVwp %12.6f',fplot1dFVwp)
+	write('file',$file,'FVadj %12.6f',fplot1dFVadj)
+	write('file',$file,'IVeach %d',fplot1dIVeach)
+	write('file',$file,'IVsp %12.6f',fplot1dIVsp)
+	write('file',$file,'IVwp %12.6f',fplot1dIVwp)
+	write('file',$file,'IVadj %12.6f',fplot1dIVadj)
+	write('file',$file,'Igap %12.6f',fplot1dIgap)
+	write('file',$file,'Iscale %s',fplot1dIscale)
+	write('file',$file,'Irows %d',fplot1dIrows)
+	write('file',$file,'Iheight %12.6f',fplot1dIheight)
+	write('file',$file,'Iypos %12.6f',fplot1dIypos)
+	write('file',$file,'IRsp %12.6f',fplot1dIRsp)
+	write('file',$file,'IRwp %12.6f',fplot1dIRwp)
+	write('file',$file,'IntVal %s',fplot1dIntVal)
+	write('file',$file,'IntMod %s',fplot1dIntMod)
+	write('file',$file,'Cypos %12.6f',fplot1dCypos)
+	write('file',$file,'Cygap %12.6f',fplot1dCygap)
+	write('file',$file,'CVsp %12.6f',fplot1dCVsp)
+	write('file',$file,'CVwp %12.6f',fplot1dCVwp)
+	write('file',$file,'CVadj %12.6f',fplot1dCVadj)
+	//write all inset stuff here in a loop
+	write('file',$file,'NumInsets %d',fplot1dNumInsets)
+	$i=1
+	while ($i <= fplot1dNumInsets) do
+		write('file',$file,'Isp %12.6f',fplot1dIsp[$i])
+		write('file',$file,'Iwp %12.6f',fplot1dIwp[$i])
+		$i=$i+1
+	endwhile
+
+	return
+
+elseif ($op = 'load') then
+	//load values from a file
+
+	if ($#>1) then //filename supplied
+		//get the paths setup properly
+		substr($2,'dirname'):$path
+		substr($2,'basename'):$file
+		if ($path='.') then //no path supplied assume home
+			$path=userdir+'/tablib'
+		endif
+		//check for relative path
+		$first=''
+		substr($path,1,1):$first
+		if ($first<>'/') then 
+			//lock for file in any of the appdirs
+			exists($file,$path):$e,$path
+		endif
+		$file=$path+'/'+$file
+
+		//does the file exist?
+		exists($file,'file'):$e
+		if ($e) then
+			write('line3','reading fplot1d parameters from '+$file)
+		else
+			write('error','file not found:'+$file)
+			return(1)
+		endif
+
+		fplot1d('load2',$file)
+			
+	else //have user select file
+		//there should be a generic file selector GUI...
+		//any way to use vnmrjcmd('LOC browserPanel')?
+
+		//for now, use our version
+		fplotTmpMsg='Load Plot Settings From A File'
+		if (fplotTmpPath='') then
+			fplotTmpPath=userdir+'/tablib'
+		endif
+		if (fplotTmpFile='') then
+			fplotTmpFile='plot.dat'
+		endif
+		$okcmd='fplot1d(`load`,fplotTmpPath+`/`+fplotTmpFile)'
+		$cancelcmd=''
+
+		exists('fplotfile.xml','templates/vnmrj/interface'):$e,$path
+		vnmrjcmd('popup', 'file:'+$path, \
+		'cancel:'+$cancelcmd, \
+		'ok:'+$okcmd, \
+		'title:Load Settings')
+
+	endif
+
+elseif ($op = 'load2') then
+	//can only get here if file has been verified
+	$file=$2
+
+	//initialize the file
+	lookup('file',$file)
+	lookup('read',1):$firstword
+	if ($firstword <> 'fplot1d') then
+		write('error','bad file format:'+$file)
+		return(1)
+	endif
+
+	//Note - this isn't very robust - I should reset the
+	//file pointer before each search so the order doesn't
+	//matter - I should also check each read to look for
+	//unfound searches and react as needed
+
+	//use the names to find each value and read them in
+	lookup('seekcs','Type','read'):fplot1dType
+	lookup('seekcs','Title','readline'):fplot1dTitle
+	if (fplot1dTitle='!!EMPTY!!TITLE!!') then
+		fplot1dTitle=''
+	endif
+	lookup('seekcs','TitlePos1','read'):fplot1dTitlePos[1]
+	lookup('seekcs','TitlePos2','read'):fplot1dTitlePos[2]
+	lookup('seekcs','ExpMain','read'):$val
+	//format($val,6,0):fplot1dExpMain
+	lookup('seekcs','ExpComp','read'):$val
+	//format($val,6,0):fplot1dExpComp
+	lookup('seekcs','NegPeaks','read'):$val
+	format($val,6,0):fplot1dNegPeaks
+	lookup('seekcs','Thick','read'):$val
+	format($val,12,6):fplot1dThick
+	lookup('seekcs','HRes','read'):$val
+	format($val,6,0):fplot1dHRes
+	lookup('seekcs','Fsp','read'):$val
+	format($val,12,6):fplot1dFsp
+	lookup('seekcs','Fwp','read'):$val
+	format($val,12,6):fplot1dFwp
+	lookup('seekcs','FVsp','read'):$val
+	format($val,12,6):fplot1dFVsp
+	lookup('seekcs','FVwp','read'):$val
+	format($val,12,6):fplot1dFVwp
+	lookup('seekcs','FVadj','read'):$val
+	format($val,12,6):fplot1dFVadj
+	lookup('seekcs','IVeach','read'):$val
+	format($val,6,0):fplot1dIVeach
+	lookup('seekcs','IVsp','read'):$val
+	format($val,12,6):fplot1dIVsp
+	lookup('seekcs','IVwp','read'):$val
+	format($val,12,6):fplot1dIVwp
+	lookup('seekcs','IVadj','read'):$val
+	format($val,12,6):fplot1dIVadj
+	lookup('seekcs','Igap','read'):$val
+	format($val,12,6):fplot1dIgap
+	lookup('seekcs','Iscale','read'):fplot1dIscale
+	lookup('seekcs','Irows','read'):$val
+	format($val,6,0):fplot1dIrows
+	lookup('seekcs','Iheight','read'):$val
+	format($val,12,6):fplot1dIheight
+	lookup('seekcs','Iypos','read'):$val
+	format($val,12,6):fplot1dIypos
+	lookup('seekcs','IRsp','read'):$val
+	format($val,12,6):fplot1dIRsp
+	lookup('seekcs','IRwp','read'):$val
+	format($val,12,6):fplot1dIRwp
+	lookup('seekcs','IntVal','read'):fplot1dIntVal
+	lookup('seekcs','IntMod','read'):fplot1dIntMod
+	lookup('seekcs','Cypos','read'):$val
+	format($val,12,6):fplot1dCypos
+	lookup('seekcs','Cygap','read'):$val
+	format($val,12,6):fplot1dCygap
+	lookup('seekcs','CVsp','read'):$val
+	format($val,12,6):fplot1dCVsp
+	lookup('seekcs','CVwp','read'):$val
+	format($val,12,6):fplot1dCVwp
+	lookup('seekcs','CVadj','read'):$val
+	format($val,12,6):fplot1dCVadj
+	//read inset stuff here in a loop
+	lookup('seekcs','NumInsets','read'):$val
+	format($val,6,0):fplot1dNumInsets
+	$i=1
+	while ($i <= fplot1dNumInsets) do
+		lookup('seekcs','Isp','read'):$val
+		format($val,12,6):fplot1dIsp[$i]
+		lookup('seekcs','Iwp','read'):$val
+		format($val,12,6):fplot1dIwp[$i]
+		$i=$i+1
+	endwhile
+	fplot1d('fixRef')
+
+	return
+
+elseif ($op = 'selectMain') then
+	if (fplot1dRef <> reffrq) then
+		//comparison spec acquired at diff field strength
+		$cr=cr/reffrq*fplot1dRef
+		$delta=delta/reffrq*fplot1dRef
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot1dFsp=$cr-$delta
+	fplot1dFwp=$delta
+
+	//sanity check the region for insets
+	fplot1d('fixHorizReg')
+	return
+
+elseif ($op = 'selectMainVert') then
+	if (fplot1dRef <> reffrq) then
+		//comparison spec acquired at diff field strength
+		$cr=cr/reffrq*fplot1dRef
+		$delta=delta/reffrq*fplot1dRef
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot1dFVsp=$cr-$delta
+	fplot1dFVwp=$delta
+	return
+
+elseif ($op = 'selectCompVert') then
+	if (fplot1dRef <> reffrq) then
+		//comparison spec acquired at diff field strength
+		$cr=cr/reffrq*fplot1dRef
+		$delta=delta/reffrq*fplot1dRef
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot1dCVsp=$cr-$delta
+	fplot1dCVwp=$delta
+	return
+
+elseif ($op = 'selectInset') then
+	if (fplot1dRef <> reffrq) then
+		//comparison spec acquired at diff field strength
+		$cr=cr/reffrq*fplot1dRef
+		$delta=delta/reffrq*fplot1dRef
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot1dNumInsets = fplot1dNumInsets+1
+	$i = fplot1dNumInsets
+	fplot1dIsp[$i] = $cr-$delta
+	fplot1dIwp[$i] = $delta
+
+	fplot1d('showInset')
+	return
+
+elseif ($op = 'showInset') then
+	//based on the showfreq macro
+	$insfile=curexp+'/insinfo'
+	if (fplot1dNumInsets>0) then
+		write('reset',$insfile)
+		write('file',$insfile,'   ppm1      ppm2 ')
+		write('file',$insfile,'------------------')
+		$i=1
+		$ppm1=0 $ppm2=0
+		repeat
+			fplot1d('conv2ppm',fplot1dIsp[$i],fplot1dIwp[$i]):$ppm1,$ppm2
+			write('file',$insfile,'%8.2f    %8.2f',$ppm1,$ppm2)
+			$i=$i+1
+		until $i > fplot1dNumInsets
+	endif
+
+	exists($insfile,'file'):$ex
+	if ($ex) then
+		graphis('ds'):$dson
+		if ($dson) then ds endif
+		dtext($insfile)
+		shell('rm -f '+$insfile):$e
+	endif	
+
+	return
+
+elseif ($op = 'clearInset') then
+	fplot1dNumInsets=0
+	//?? do we need to bother with clearing the previous values??
+	return
+
+elseif ($op = 'selectInsetVert') then
+	if (fplot1dRef <> reffrq) then
+		//comparison spec acquired at diff field strength
+		$cr=cr/reffrq*fplot1dRef
+		$delta=delta/reffrq*fplot1dRef
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot1dIVsp = $cr-$delta
+	fplot1dIVwp = $delta
+	return
+
+elseif ($op = 'selectHorizReg') then
+	if (fplot1dRef <> reffrq) then
+		//comparison spec acquired at diff field strength
+		$cr=cr/reffrq*fplot1dRef
+		$delta=delta/reffrq*fplot1dRef
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot1dIRsp = $cr-$delta
+	fplot1dIRwp = $delta
+
+	//sanity check the region for insets
+	fplot1d('fixHorizReg')
+	return
+
+elseif ($op = 'fixHorizReg') then
+	//sanity check the region for insets
+	if (fplot1dIRsp<fplot1dFsp) then fplot1dIRsp=fplot1dFsp endif
+	$Fep=fplot1dFsp+fplot1dFwp
+	$IRep=fplot1dIRsp+fplot1dIRwp
+	if ($IRep>$Fep) then fplot1dIRwp=$Fep-fplot1dIRsp endif
+	return
+
+elseif ($op = 'fixRef') then
+	$curexp=0
+	jexp:$curexp
+	if ($curexp<>fplot1dExpMain) then fplot1d('join',fplot1dExpMain) endif
+	fplot1dRef=reffrq
+	if ($curexp<>fplot1dExpMain) then fplot1d('join',$curexp) endif
+	return
+
+elseif ($op = 'conv2ppm') then
+	//used by GUI to display ppm values
+	//expect $2 to be sp and $3 to be wp
+	$ppm1=0
+	$ppm2=0
+	if ($#>1) then
+		$ppm1 = $2/fplot1dRef
+	endif
+	if ($#>2) then
+		$ppm2 = $ppm1 + $3/fplot1dRef
+	else
+		$ppm2=0
+	endif
+	return($ppm1,$ppm2)
+
+elseif ($op = 'convFromppm') then
+	//used by GUI to set sp sc style variables from two ppm values
+	//expect $2 to be the first ppm and $3 to be the second ppm
+	$sp=0
+	$wp=0
+	$ppm1=0
+	$ppm2=0
+	if ($#>1) then
+		$ppm1=$2
+	endif
+	if ($#>2) then
+		$ppm2=$3
+		if ($ppm2<$ppm1) then
+			$ppm2=$ppm1
+			$ppm1=$3
+		endif
+	else
+		$ppm2=$ppm1
+	endif
+	$sp=$ppm2*fplot1dRef
+	$wp=$ppm1*fplot1dRef-$sp
+	//not sure if this works for negative gamma nuclei... quick check
+	if ($wp < 0) then
+		$sp=$ppm1*fplot1dRef
+		$wp=$ppm2*fplot1dRef-$sp
+	endif
+	return($sp,$wp)
+
+elseif ($op = 'join') then
+	if ($# > 1) then
+		//check for an array experiment
+		$which=0
+		$size=size('$2')
+		if ($size>1) then
+			$which=$2[2]
+		endif
+		
+		$strexp='' format($2[1],1,0):$strexp
+		exists(userdir+'/exp'+$strexp,'directory'):$e
+		if ($e) then
+			$exp='jexp'+$strexp
+			{$exp}
+			if ($which=0) then
+				if (arraydim>1) then
+					$which=2 //e.g mix=0 or full DEPT, etc.
+				else
+					$which=1
+				endif
+			else
+				if ($which>arraydim) then $which=arraydim endif
+			endif
+			ds($which)
+		else
+			write('error','experiment '+$strexp+' does not exist')
+			return(1)
+		endif
+	endif
+	return
+
+elseif ($op = 'preview') then
+	//quick sanity check
+	if (fplot1dType='comparison') then
+		//jexp(fplot1dExpComp)
+		fplot1d('join',fplot1dExpComp)
+		$comptn=tn
+		//jexp(fplot1dExpMain)
+		fplot1d('join',fplot1dExpComp)
+		$maintn=tn
+		if ($maintn<>$comptn) then
+			write('error','comparison spectrum does not match main spectrum, expecting %s',$maintn)
+			return(1)
+		endif
+	endif
+
+
+	//**Initial setup
+	page('clear') resetplotter
+	pslw = fplot1dThick
+	pshr=fplot1dHRes
+
+
+	//**Plot the title
+	if (fplot1dTitlePos[1]='top') then
+		$y=wc2max
+	else //'bottom'
+		$y=-18
+	endif
+	//can't find any macro that returns the physical width of a printed string...
+	//empirical measurements have ~100 chars across 6 inch or ~1.524 mm/char
+	$charwid = 1.6 //need to be a little generous to avoid right-justif. overlap
+	length(fplot1dTitle):$titlelen
+	$titlelen = $titlelen*$charwid
+	if (fplot1dTitlePos[2]='right') then
+		$x=wcmax-$titlelen
+	elseif (fplot1dTitlePos[2]='center') then
+		$x=(wcmax-$titlelen)/2
+	else //'left'
+		$x=0
+	endif
+	write('plotter',$x,$y,fplot1dTitle)
+
+
+	//**Plot the main spectrum
+	//setup plot area and vert scale
+	//jexp(fplot1dExpMain)
+	fplot1d('join',fplot1dExpMain)
+	parstyle=''
+	nm axis='p'
+	sc=0	wc=wcmax
+	sc2=0	wc2=wc2max
+	if (fplot1dNegPeaks) then
+		//cutoff negative peaks
+		cutoff=wc2max,15
+	else
+		cutoff='n' 
+	endif
+	if (fplot1dIntVal='none') then
+		$targetvp=0
+	else
+		$targetvp=15
+	endif
+	intmod=fplot1dIntMod
+	if (fplot1dType='comparison') then
+		$targetwc2=fplot1dCypos*wc2max-fplot1dCygap
+		$tmpvp=wc2max-$targetwc2
+	else
+		$targetwc2=wc2max
+		$tmpvp=vp
+	endif
+	vp=$tmpvp
+	sp=fplot1dFVsp
+	wp=fplot1dFVwp
+	vsadj vs=vs*fplot1dFVadj
+	vp=$targetvp
+	wc2=$targetwc2
+	sp=fplot1dFsp
+	wp=fplot1dFwp
+
+	//plot the main spectrum
+	plotmanual('1d','pl')
+	plotmanual('1d','pscale')
+	if (fplot1dIntVal<>'none') then
+		plotmanual('1d',fplot1dIntVal)
+	endif
+	
+
+	//Plot the comparison spectrum
+	if (fplot1dType='comparison') then
+		//go to the comparison spectrum (e.g. DEPT)
+		//jexp(fplot1dExpComp)
+		fplot1d('join',fplot1dExpComp)
+		nm 
+		if (fplot1dNegPeaks) then
+			//cutoff negative peaks
+			cutoff=wc2max*(1-fplot1dCypos),fplot1dCygap
+		else
+			cutoff='n' 
+		endif
+
+		//setup plot area and vert scale
+		sc=0	wc=wcmax
+		sc2=0	wc2=wc2max
+		if (fplot1dRef <> reffrq) then
+			//comparison spec acquired at diff field strength
+			sp=fplot1dCVsp/fplot1dRef*reffrq
+			wp=fplot1dCVwp/fplot1dRef*reffrq
+		else
+			sp=fplot1dCVsp
+			wp=fplot1dCVwp
+		endif
+		vp=fplot1dCypos*wc2max
+		vsadj vs=vs*fplot1dCVadj
+		if (fplot1dRef <> reffrq) then
+			//comparison spec acquired at diff field strength
+			sp=fplot1dFsp/fplot1dRef*reffrq
+			wp=fplot1dFwp/fplot1dRef*reffrq
+		else
+			sp=fplot1dFsp
+			wp=fplot1dFwp
+		endif
+		
+		//Plot the comparison spectrum
+		if (fplot1dIntVal<>'none') then
+			plotmanual('1d',fplot1dIntVal)
+		endif
+		intmod=fplot1dIntMod
+		plotmanual('1d','pl')
+
+		vp=15 vsadj
+		//jexp(fplot1dExpMain)
+		fplot1d('join',fplot1dExpMain)
+	endif
+
+
+	//Plot the insets
+	//convert fplot1dxpos into conventional sc wc units (% of width)
+	// and force insets to fit within this region
+	if (fplot1dNumInsets>0) then
+
+	if (fplot1dType='simple') then 
+		//first, calculate the vertical positions
+		$vpr1=wc2max*(1-fplot1dIheight)+15
+		$vpr2=wc2max*(1-2*fplot1dIheight)+15
+
+		//next, calculate the horiz region for insets
+		$iregsc=wcmax*(fplot1dIRsp-fplot1dFsp)/fplot1dFwp
+		$iregwc=wcmax*(fplot1dIRwp/fplot1dFwp)
+
+		if (fplot1dNumInsets=1) then fplot1dIrows=1 endif
+
+		//calculate the chart and plot positions for each inset
+		//first - find the total SW of all the insets
+		$cnt=1 $totsw=0
+		while ($cnt <= fplot1dNumInsets) do
+			$totsw=$totsw+fplot1dIwp[$cnt]
+			$cnt=$cnt+1
+		endwhile
+
+		//take care of stuff for 2 rows
+		if (fplot1dIrows=1) then //set some defaults
+			$xtotal=$totsw
+			$row2start=fplot1dNumInsets+1
+			$totmm=$iregwc-fplot1dIgap*(fplot1dNumInsets-1)
+		else //find where to divide the insets
+			$xthresh=$totsw/2
+			$xtotal=0
+			$cnt=1 
+			//find which inset just pushes us past half the total SW
+			//(but always leave at least one inset if 2 rows requested)
+			repeat
+				$xtotal=$xtotal+fplot1dIwp[$cnt]
+				$cnt=$cnt+1
+			until (($xtotal>=$xthresh) or ($cnt=fplot1dNumInsets))
+			$row2start=$cnt
+			$totmm=$iregwc-fplot1dIgap*($row2start-2)
+			//watch out of case where final inset is really large
+			if (($row2start=fplot1dNumInsets) and (fplot1dIwp[$row2start]>$xtotal)) then
+				$xtotal=fplot1dIwp[$row2start]
+				$totmm=$iregwc-fplot1dIgap*(fplot1dNumInsets-$row2start)
+			endif
+		endif
+		
+		//get a consistent scale for all insets
+		$convsw2mm=$totmm/$xtotal
+		$cnt=1
+		while ($cnt <= fplot1dNumInsets) do
+			$wci[$cnt]=fplot1dIwp[$cnt]*$convsw2mm
+			$sci[$cnt]=0 //initialize the $sci array
+			$vpi[$cnt]=$vpr1 //initialize the $vpi array
+			$cnt=$cnt+1
+		endwhile
+
+		//calculate horiz chart positions and set vert pos
+		//Note, iterate in reverse order to ensure left justification of insets
+		$cnt=fplot1dNumInsets
+		repeat
+			if (($cnt = $row2start-1) or ($cnt = fplot1dNumInsets)) then
+				$sci[$cnt]=$iregsc+$iregwc-$wci[$cnt]
+			else
+				$sci[$cnt]=$sci[$cnt+1]-fplot1dIgap-$wci[$cnt]
+			endif
+			if ($cnt < $row2start) then
+				$vpi[$cnt]=$vpr1
+			else
+				$vpi[$cnt]=$vpr2
+			endif
+			$cnt=$cnt-1
+		until ($cnt < 1)
+
+		//get const vs if desired
+		$vsi=0
+		if (fplot1dIVeach=0) then
+			sc=0 wc=wcmax
+			sc2=0 wc2=wc2max
+			vp=$vpr1
+			sp=fplot1dIVsp
+			wp=fplot1dIVwp
+			vsadj //just raw vsadj here, use fplot1dIVadj later
+			$vsi=vs
+		endif
+
+		//Plot the insets
+		sc2=0 wc2=wc2max
+		intmod='off' axis=fplot1dIscale
+
+		$cnt=1
+		repeat
+			//setup plot region
+			sc=$sci[$cnt]
+			wc=$wci[$cnt]
+			vp=$vpi[$cnt]
+			sp=fplot1dIsp[$cnt]
+			wp=fplot1dIwp[$cnt]
+
+			//adjust vert scale
+			if ($vsi) then //fixed vs
+				vs=$vsi
+			else //vsadj
+				vp=$vpr1
+				vsadj
+				vp=$vpi[$cnt]
+			endif
+			vs=vs*fplot1dIVadj
+
+			//plot the inset
+			plotmanual('1d','pl')
+			if ($cnt=1) then
+				plotmanual('1d','pscale')
+			else //no axis label
+				pscale('  ')
+			endif
+				
+			$cnt=$cnt+1
+		until ($cnt > fplot1dNumInsets)
+
+	else //comparison insets
+		nm
+		//first, calculate the vertical positions
+		$sc2i=fplot1dIypos*wc2max
+		$wc2i=fplot1dIheight*wc2max
+		$vp1=$sc2i+15
+		$vp2=$vp1+($wc2i-15)*fplot1dCypos
+		$vp1IV=wc2max-($vp2-$vp1)
+		$vp2IV=wc2max-($sc2i+$wc2i-$vp2)
+
+		//next, calculate the horiz region for insets
+		$iregsc=wcmax*(fplot1dIRsp-fplot1dFsp)/fplot1dFwp
+		$iregwc=wcmax*(fplot1dIRwp/fplot1dFwp)
+
+		//calculate the chart and plot positions for each inset
+		//first - find the total SW of all the insets
+		$cnt=1 $totsw=0
+		while ($cnt <= fplot1dNumInsets) do
+			$totsw=$totsw+fplot1dIwp[$cnt]
+			$cnt=$cnt+1
+		endwhile
+		
+		//get a consistent scale for all insets
+		$totmm=$iregwc-fplot1dIgap*(fplot1dNumInsets-1)
+		$convsw2mm=$totmm/$totsw
+		$cnt=1
+		while ($cnt <= fplot1dNumInsets) do
+			$wci[$cnt]=fplot1dIwp[$cnt]*$convsw2mm
+			$cnt=$cnt+1
+		endwhile
+
+		//calculate horiz chart positions 
+		$cnt=2 $sci[1]=$iregsc
+		while ($cnt <= fplot1dNumInsets) do
+			$sci[$cnt]=$sci[$cnt-1]+$wci[$cnt-1]+fplot1dIgap
+			$cnt=$cnt+1
+		endwhile
+
+		//Start with Main spectrum insets
+		//get const vs if desired
+		$vsi=0
+		if (fplot1dIVeach=0) then
+			sc=0 wc=wcmax
+			sc2=0 wc2=wc2max
+			vp=$vp1IV
+			sp=fplot1dIVsp
+			wp=fplot1dIVwp
+			vsadj //just raw vsadj here, use fplot1dIVadj later
+			$vsi=vs
+		endif
+
+		//Plot the insets
+		sc2=0 wc2=wc2max
+		intmod='off' axis=fplot1dIscale
+
+		$cnt=1
+		repeat
+			//setup plot region
+			sc=$sci[$cnt]
+			wc=$wci[$cnt]
+			sp=fplot1dIsp[$cnt]
+			wp=fplot1dIwp[$cnt]
+
+			//adjust vert scale
+			if (fplot1dIVeach) then //fixed vs
+				vp=$vp1IV
+				vsadj
+			else //vsadj
+				vs=$vsi
+			endif
+			vp=$vp1
+			vs=vs*fplot1dIVadj
+
+			//plot the inset
+			plotmanual('1d','pl')
+			if ($cnt=1) then
+				plotmanual('1d','pscale')
+			else //no axis label
+				pscale('  ')
+			endif
+				
+			$cnt=$cnt+1
+		until ($cnt > fplot1dNumInsets)
+
+		//Finally, plot the comparison insets
+		//jexp(fplot1dExpComp)
+		fplot1d('join',fplot1dExpComp)
+		nm
+		//get const vs if desired
+		$vsi=0
+		if (fplot1dIVeach=0) then
+			sc=0 wc=wcmax
+			sc2=0 wc2=wc2max
+			vp=$vp2IV
+			if (fplot1dRef <> reffrq) then
+				//comparison spec acquired at diff field strength
+				sp=fplot1dIVsp/fplot1dRef*reffrq
+				wp=fplot1dIVwp/fplot1dRef*reffrq
+			else
+				sp=fplot1dIVsp
+				wp=fplot1dIVwp
+			endif
+			vsadj //just raw vsadj here, use fplot1dIVadj later
+			$vsi=vs
+		endif
+
+		//Plot the insets
+		sc2=0 wc2=wc2max
+		intmod='off' 
+
+		$cnt=1
+		repeat
+			//setup plot region
+			sc=$sci[$cnt]
+			wc=$wci[$cnt]
+			if (fplot1dRef <> reffrq) then
+				//comparison spec acquired at diff field strength
+				sp=fplot1dIsp[$cnt]/fplot1dRef*reffrq
+				wp=fplot1dIwp[$cnt]/fplot1dRef*reffrq
+			else
+				sp=fplot1dIsp[$cnt]
+				wp=fplot1dIwp[$cnt]
+			endif
+
+			//adjust vert scale
+			if (fplot1dIVeach) then //fixed vs
+				vp=$vp2IV
+				vsadj
+			else //vsadj
+				vs=$vsi
+			endif
+			vp=$vp2
+			vs=vs*fplot1dIVadj
+
+			//adjust cutoff if desired
+			if (fplot1dNegPeaks) then
+				//cutoff negative peaks
+				cutoff=$wc2i*(1-fplot1dCypos),fplot1dCygap
+			else
+				cutoff='n' 
+			endif
+
+			//plot the inset
+			plotmanual('1d','pl')
+				
+			$cnt=$cnt+1
+		until ($cnt > fplot1dNumInsets)
+
+	endif //simple vs comparison
+
+	endif //NumInsets>0
+
+	//return things to a good state
+	sc=0 wc=wcmax
+	sc2=0 wc2=wc2max
+	vp=0
+	sp=fplot1dFsp
+	wp=fplot1dFwp
+	vsadj
+	axis='p'
+	parstyle='bpa'
+	ds
+	//jexp(fplot1dExpMain)
+	fplot1d('join',fplot1dExpMain)
+	sc=0 wc=wcmax
+	sc2=0 wc2=wc2max
+	if (fplot1dIntVal='none') then
+		vp=0
+	else
+		vp=15
+	endif
+	sp=fplot1dFsp
+	wp=fplot1dFwp
+	vsadj
+	axis='p'
+	parstyle='bpa'
+	ds
+
+	pageview resetplotter
+
+	return
+
+endif

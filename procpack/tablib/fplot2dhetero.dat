@@ -1,0 +1,24 @@
+fplot2d parameter set
+Type hetero
+Title  500 MHz HSQCAD in DMSO
+TitlePos1 top
+TitlePos2 center
+Exp2D 10
+ExpTop 11
+ExpLeft 12
+Top 1
+Left 1
+Thick     1.000000
+Count 20
+Space     1.400000
+Gap     2.000000
+XVsp -1199.338141
+XVwp  5946.718284
+XVadj     1.000000
+Xheight    30.000000
+YVsp -1254.044449
+YVwp 25126.125060
+YVadj     1.000000
+Yheight    50.000000
+NumX 0
+NumY 0

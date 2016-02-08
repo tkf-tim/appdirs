@@ -1,0 +1,67 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<template name="fplotfile" element="pages" type="processing" >
+  <group size="400 140"
+    style="PlainText"
+    label="File Popup"
+    bg="transparent"
+    border="None"
+    side="Top"
+    justify="Left"
+    tab="yes"
+    enable="no"
+    reference="fplotfile"
+    useref="no"
+    subtype="Untitled"
+    expanded="yes"
+    >
+    <group loc="0 60" size="400 35"
+      bg="transparent"
+      border="None"
+      tab="no"
+      enable="no"
+      useref="no"
+      subtype="Untitled"
+      >
+      <label loc="10 5" size="75 25"
+        style="Menu4"
+        label="Path:"
+        justify="Right"
+        />
+      <entry loc="90 5" size="300 25"
+        style="PlainText"
+        vq="fplotTmpPath"
+        vc="fplotTmpPath='$VALUE'"
+        set="$VALUE=fplotTmpPath"
+        tooltip="Location of the file"
+        />
+    </group>
+    <textmessage loc="55 10" size="300 40"
+      style="Heading3"
+      label="---"
+      vq="fplotTmpMsg"
+      set="$VALUE=fplotTmpMsg"
+      />
+    <group loc="0 100" size="400 35"
+      bg="transparent"
+      border="None"
+      tab="no"
+      enable="no"
+      useref="no"
+      subtype="Untitled"
+      >
+      <label loc="10 5" size="75 25"
+        style="Menu4"
+        label="Filename:"
+        justify="Right"
+        />
+      <entry loc="90 5" size="300 25"
+        style="PlainText"
+        vq="fplotTmpFile"
+        vc="fplotTmpFile='$VALUE'"
+        set="$VALUE=fplotTmpFile"
+        tooltip="File name"
+        />
+    </group>
+  </group>
+</template>

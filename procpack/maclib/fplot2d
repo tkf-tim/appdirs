@@ -1,0 +1,1171 @@
+" fplot2d - fancy 1D plotting (primarily for insets) "
+
+/* interface functions to help the GUI
+  init			creates all the variables
+  reset			resets all variables to default values
+  purge			destroys all the variables
+  load			load variables from a file
+  save			save variables to a file
+  preview		create a pdf preview using the current settings
+
+  selectXreg	select an region (x direction)
+  showXreg		show list of regions (x direction)
+  clearXreg		clear list of regions (x direction)
+  selectTopVert	select region for vsadj (top spectrum)
+  selectYreg	select an region (y direction)
+  showYreg		show list of regions (y direction)
+  clearYreg		clear list of regions (y direction)
+  selectLeftVert	select region for vsadj (left spectrum)
+  mirrorTop		force regions and vsadj settings to match Left
+  mirrorLeft	force regions and vsadj settings to match Top
+  fixExp		ensure homonuclear uses same side spectra
+  fixVert		ensure vsadj regions make sense
+
+  conv2ppmX
+  conv2ppmY		conv sp/wp style variables into ppm1/ppm2 style
+				fplot2d('conv2ppmX',sp,wp):ppm1,ppm2
+				fplot2d('conv2ppmY',sp1,wp1):ppm1,ppm2
+  convFromppmX
+  convFromppmY	conv ppm1/ppm2 style variables into sp/wp style
+				fplot2d('convFromppmX',ppm1,ppm2):sp,wp 
+				fplot2d('convFromppmY',ppm1,ppm2):sp1,wp1 
+
+  join			jexp to the exp number given as the 2nd option
+  disp			use to choose ds or dconi with options
+				fplot2d('disp','toggle')
+				fplot2d('disp','expand')
+
+  Note: the 'reset' function looks for files in tablib
+			fplot2dhomo.dat
+			fplot2dhetero.dat
+		based on fplot2dType. All appdir tablib's are searched.
+*/
+
+/* variables that are used in the GUI
+  fplot2dType			which type of plot: 'homo' or 'hetero'
+  fplot2dTitle			title to print on spectrum
+  fplot2dTitlePos[1]	where to plot title: 'top' or 'bottom'
+  fplot2dTitlePos[2]	where to plot title: 'left', 'center', or 'right'
+  fplot2dExp2D			position of 2D spectrum (assume that we start here)
+  fplot2dExpTop			position of top plot (e.g. 1H)
+  fplot2dExpLeft		position of left plot (e.g. 13C)
+  fplot2dTop			plot top spec? (0=false, 1=true)
+  fplot2dLeft			plot left spec? (0=false, 1=true)
+  fplot2dThick			line thickness in pt
+  fplot2dCount			number of 2D contours to plot
+  fplot2dSpace			spacing of 2D contours
+  fplot2dGap			gap between regions in mm
+
+  fplot2dNumX			Number of x regions to plot
+  fplot2dXsp[]			Top spectra, start of plot
+  fplot2dXwp[]			Top spectra, width of plot
+  fplot2dXVsp			Top spectrum, vsadj start of plot
+  fplot2dXVwp			Top spectrum, vsadj width of plot
+  fplot2dXVadj			Top spectrum, vsadj correction (%)
+  fplot2dXheight		Top spectrum, vertical height (mm)
+
+  fplot2dNumY			Number of y regions to plot
+  fplot2dYsp[]			Left spectra, start of plot
+  fplot2dYwp[]			Left spectra, width of plot
+  fplot2dYVsp			Left spectrum, vsadj width of plot
+  fplot2dYVwp			Left spectrum, vsadj width of plot
+  fplot2dYVadj			Left spectrum, vsadj correction (%)
+  fplot2dYheight		Left spectrum, horizontal height (mm)
+
+  fplot2dXnuc			x-axis tn
+  fplot2dXref			x-axis reffrq
+  fplot2dXp1			x-axis min ppm
+  fplot2dXp2			x-axis max ppm
+  fplot2dXnuc			y-axis (dn or tn)
+  fplot2dYref			y-axis reffrq
+  fplot2dYp1			y-axis min ppm
+  fplot2dYp2			y-axis max ppm
+
+  fplot2dDefXht			default X height
+  fplot2dDefYht			default Y height
+  fplotTmpMsg			Temp variable used for popup windows
+  fplotTmpPath			Temp variable used for popup window
+  fplotTmpFile			Temp variable used for popup window
+ */
+
+//Initialize unless a specific option is given
+$op='init'
+if ($#) then
+	$op=$1
+endif
+
+format(solvent,'upper'):$solv
+
+if ($op = 'init') then //create our variables
+	//Note, ignore default values here, defaults set in 'reset'
+	//Note, expectation is that we start in the 2D experiment
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if ($is2d=0) then
+		write('error','not a 2D experiment')
+		return(1)
+	endif
+
+	//need to create in global so they still exist when using jexp
+	create('fplot2dType','string','global','homo'):$e
+	setgroup('fplot2dType','display','global')
+	create('fplot2dTitle','string','global',pslabel+' in '+$solv):$e
+	setgroup('fplot2dTitle','display','global')
+	create('fplot2dTitlePos','string','global',''):$e
+	setgroup('fplot2dTitlePos','display','global')
+	fplot2dTitlePos[1]='top'
+	fplot2dTitlePos[2]='left'
+	create('fplot2dExp2D','integer','global',0):$e
+	setgroup('fplot2dExp2D','display','global')
+	//set fplot2dExpMain to global exp number
+	jexp:fplot2dExp2D
+	create('fplot2dExpTop','integer','global',fplot2dExp2D+1):$e
+	setgroup('fplot2dExpTop','display','global')
+	create('fplot2dExpLeft','integer','global',fplot2dExp2D+1):$e
+	setgroup('fplot2dExpLeft','display','global')
+	create('fplot2dTop','integer','global',1):$e
+	setgroup('fplot2dTop','display','global')
+	create('fplot2dLeft','integer','global',1):$e
+	setgroup('fplot2dLeft','display','global')
+	create('fplot2dThick','real','global',1):$e
+	setgroup('fplot2dThick','display','global')
+	create('fplot2dCount','real','global',20):$e
+	setgroup('fplot2dCount','display','global')
+	create('fplot2dSpace','real','global',1.4):$e
+	setgroup('fplot2dSpace','display','global')
+	create('fplot2dGap','real','global',2):$e
+	setgroup('fplot2dGap','display','global')
+
+	create('fplot2dNumX','integer','global',0):$e
+	setgroup('fplot2dNumX','display','global')
+	create('fplot2dXsp','real','global',sp):$e
+	setgroup('fplot2dXsp','display','global')
+	create('fplot2dXwp','real','global',wp):$e
+	setgroup('fplot2dXwp','display','global')
+	create('fplot2dXVsp','real','global',sp):$e
+	setgroup('fplot2dXVsp','display','global')
+	create('fplot2dXVwp','real','global',wp):$e
+	setgroup('fplot2dXVwp','display','global')
+	create('fplot2dXVadj','real','global',1.0):$e
+	setgroup('fplot2dXVadj','display','global')
+	create('fplot2dXheight','real','global',30):$e
+	setgroup('fplot2dXheight','display','global')
+	create('fplot2dNumY','integer','global',0):$e
+	setgroup('fplot2dNumY','display','global')
+	create('fplot2dYsp','real','global',sp1):$e
+	setgroup('fplot2dYsp','display','global')
+	create('fplot2dYwp','real','global',wp1):$e
+	setgroup('fplot2dYwp','display','global')
+	create('fplot2dYVsp','real','global',sp1):$e
+	setgroup('fplot2dYVsp','display','global')
+	create('fplot2dYVwp','real','global',wp1):$e
+	setgroup('fplot2dYVwp','display','global')
+	create('fplot2dYVadj','real','global',1.0):$e
+	setgroup('fplot2dYVadj','display','global')
+	create('fplot2dYheight','real','global',50):$e
+	setgroup('fplot2dYheight','display','global')
+
+	create('fplot2dXnuc','string','global','H1'):$e
+	setgroup('fplot2dXnuc','display','global')
+	create('fplot2dXref','real','global',reffrq):$e
+	setgroup('fplot2dXref','display','global')
+	create('fplot2dXp1','real','global',0):$e
+	setgroup('fplot2dXp1','display','global')
+	create('fplot2dXp2','real','global',0):$e
+	setgroup('fplot2dXp2','display','global')
+	invsetsw:fplot2dXp2,fplot2dXp1
+	create('fplot2dYnuc','string','global','H1'):$e
+	setgroup('fplot2dYnuc','display','global')
+	create('fplot2dYref','real','global',reffrq1):$e
+	setgroup('fplot2dYref','display','global')
+	create('fplot2dYp1','real','global',0):$e
+	setgroup('fplot2dYp1','display','global')
+	create('fplot2dYp2','real','global',0):$e
+	setgroup('fplot2dYp2','display','global')
+	invsetsw1:fplot2dYp2,fplot2dYp1
+
+	create('fplot2dDefXht','real','global',50):$e
+	setgroup('fplot2dDefXht','display','global')
+	create('fplot2dDefYht','real','global',50):$e
+	setgroup('fplot2dDefYht','display','global')
+	create('fplotTmpMsg','string','global',''):$e
+	setgroup('fplotTmpMsg','display','global')
+	create('fplotTmpPath','string','global',''):$e
+	setgroup('fplotTmpPath','display','global')
+	create('fplotTmpFile','string','global',''):$e
+	setgroup('fplotTmpFile','display','global')
+
+	//set default values
+	if ($#>1) then //open and load a specific data set
+		fplot2d('load',$2):$e
+		if ($e) then fplot2d('reset') endif
+	else
+		fplot2d('reset')
+	endif
+
+	exists('fplot2d.xml','templates/vnmrj/interface'):$e,$path
+	vnmrjcmd('popup', 'mode:modeless', 'file:'+$path, 'rebuild:yes', \
+	'location:topMenuBar', 'close:fplot2d(`purge`)', \
+	'title:Fancy 2D Plotting Tools')
+
+elseif ($op = 'test') then
+	write('line3','testing...')
+	
+	return
+
+elseif ($op = 'reset') then
+	//note - if vars already exist, create does nothing, so use
+	//this to set default values
+
+	//only change a few things when switching plot style
+	if ($#>1) then //only reset a select few
+		fplot2d('fix2Dpars')
+		fplot2d('fixExp')
+		fplot2d('fixVert')
+	else //reset everything to default values
+
+		//first, look for appropriate default files in tablib
+		$path='tablib'
+		$file='fplot2d'+fplot2dType+'.dat'
+		exists($file,$path):$e,$path
+		if ($e) then //load the file
+			fplot2d('load',$path)
+		endif
+
+		//some things get reset even if a file loaded
+		$tmp=''
+		format(trunc(sfrq+0.5),4,0):$tmp
+		fplot2dTitle=$tmp+' MHz '+pslabel+' in '+$solv
+		//check for NOESY or TOCSY and add mixing time in??
+
+		fplot2d('fix2Dpars','fixVert')
+		fplot2d('fixExp')
+		//adjust anything else differently based on type?
+		//should I ensure that these exp exist and are unlocked?
+
+		fplot2dNumX=0
+		fplot2dNumY=0
+
+		//the rest of these are kept from the file
+		if ($e=0) then
+			fplot2dTitlePos[1]='top'
+			fplot2dTitlePos[2]='center'
+			fplot2dTop=1
+			fplot2dLeft=1
+			fplot2dThick=1
+			fplot2dCount=20
+			fplot2dSpace=1.4
+			fplot2dGap=2
+			fplot2dXVadj=1
+			fplot2dXheight=30
+			fplot2dYVadj=1
+			fplot2dYheight=50
+			fplot2dDefXht=30
+			fplot2dDefYht=50
+		else
+			//default values not stored in the file, so set
+			//them from the values stored in the file
+			fplot2dDefXht=fplot2dXheight
+			fplot2dDefYht=fplot2dYheight
+		endif
+
+		fplotTmpMsg=''
+		fplotTmpPath=''
+		fplotTmpFile=''
+
+	endif //number of options
+
+	return
+
+elseif ($op = 'purge') then
+	//we don't want these permanently in the global tree
+	destroy('fplot2dType','global'):$e
+	destroy('fplot2dTitle','global'):$e
+	destroy('fplot2dTitlePos','global'):$e
+	destroy('fplot2dExp2D','global'):$e
+	destroy('fplot2dExpTop','global'):$e
+	destroy('fplot2dExpLeft','global'):$e
+	destroy('fplot2dTop','global'):$e
+	destroy('fplot2dLeft','global'):$e
+	destroy('fplot2dThick','global'):$e
+	destroy('fplot2dCount','global'):$e
+	destroy('fplot2dSpace','global'):$e
+	destroy('fplot2dGap','global'):$e
+	destroy('fplot2dNumX','global'):$e
+	destroy('fplot2dXsp','global'):$e
+	destroy('fplot2dXwp','global'):$e
+	destroy('fplot2dXVsp','global'):$e
+	destroy('fplot2dXVwp','global'):$e
+	destroy('fplot2dXVadj','global'):$e
+	destroy('fplot2dXheight','global'):$e
+	destroy('fplot2dNumY','global'):$e
+	destroy('fplot2dYsp','global'):$e
+	destroy('fplot2dYwp','global'):$e
+	destroy('fplot2dYVsp','global'):$e
+	destroy('fplot2dYVwp','global'):$e
+	destroy('fplot2dYVadj','global'):$e
+	destroy('fplot2dYheight','global'):$e
+
+	destroy('fplot2dXnuc','global'):$e
+	destroy('fplot2dXref','global'):$e
+	destroy('fplot2dXp1','global'):$e
+	destroy('fplot2dXp2','global'):$e
+	destroy('fplot2dYnuc','global'):$e
+	destroy('fplot2dYref','global'):$e
+	destroy('fplot2dYp1','global'):$e
+	destroy('fplot2dYp2','global'):$e
+
+	destroy('fplot2dDefXht','global'):$e
+	destroy('fplot2dDefYht','global'):$e
+
+	destroy('fplotTmpMsg','global'):$e
+	destroy('fplotTmpMsg','global'):$e
+	destroy('fplotTmpPath','global'):$e
+	destroy('fplotTmpFile','global'):$e
+
+elseif ($op = 'save') then
+	//save values to a file
+
+	if ($#>1) then //filename supplied
+		//check path
+		substr($2,'dirname'):$path
+		substr($2,'basename'):$file
+		if ($path='.') then //no path supplied assume tablib
+			$path=userdir+'/tablib'
+		endif
+		//check for relative path 
+		$first=''
+		substr($path,1,1):$first
+		if ($first<>'/') then
+			substr(userdir,'dirname'):$homedir
+			$path=$homedir+'/'+$path
+		endif
+		//check for bad path
+		exists($path,'directory'):$e
+		if ($e=0) then //doesn't exist
+			write('error','bad path:'+$path)
+			return(1)
+		endif
+
+		//check to see if $file exists and get confirmation...
+		$file=$path+'/'+$file
+		exists($file,'file'):$e
+		if ($e) then
+			fplotTmpMsg='This file exists!  Overwrite it?'
+			$okcmd='fplot2d(`save2`,`'+$file+'`)'
+			$cancelcmd=''
+
+			exists('fplotmessage.xml','templates/vnmrj/interface'):$e,$path
+			vnmrjcmd('popup', 'file:'+$path, \
+			'cancel:'+$cancelcmd, \
+			'ok:'+$okcmd, \
+			'title:Load Settings')
+		else
+			//create new file
+			fplot2d('save2',$file)
+		endif
+
+	else //have user select file
+		//there should be a generic file selector GUI...
+		//any way to use vnmrjcmd('LOC browserPanel')?
+
+		//for now, use our version
+		fplotTmpMsg='Save Plot Settings To A File'
+		if (fplotTmpPath='') then
+			fplotTmpPath=userdir+'/tablib'
+		endif
+		if (fplotTmpFile='') then
+			fplotTmpFile='plot.dat'
+		endif
+		$okcmd='fplot2d(`save`,fplotTmpPath+`/`+fplotTmpFile)'
+		$cancelcmd=''
+
+		exists('fplotfile.xml','templates/vnmrj/interface'):$e,$path
+		vnmrjcmd('popup', 'file:'+$path, \
+		'cancel:'+$cancelcmd, \
+		'ok:'+$okcmd, \
+		'title:Load Settings')
+	endif
+
+
+elseif ($op = 'save2') then
+	//We only get here after $2 has been verified
+	$file=$2
+	write('line3','saving fplot2d parameters to '+$file)
+
+	//Initialize the file
+	write('reset',$file)
+	write('file',$file,'fplot2d parameter set')
+	
+	//Save parameters as a name/val pair
+	write('file',$file,'Type %s',fplot2dType)
+	if (fplot2dTitle) then
+		write('file',$file,'Title %s',fplot2dTitle)
+	else //empty string - messes up load
+		write('file',$file,'Title %s','!!EMPTY!!TITLE!!')
+	endif
+	write('file',$file,'TitlePos1 %s',fplot2dTitlePos[1])
+	write('file',$file,'TitlePos2 %s',fplot2dTitlePos[2])
+	write('file',$file,'Exp2D %d',fplot2dExp2D)
+	write('file',$file,'ExpTop %d',fplot2dExpTop)
+	write('file',$file,'ExpLeft %d',fplot2dExpLeft)
+	write('file',$file,'Top %d',fplot2dTop)
+	write('file',$file,'Left %d',fplot2dLeft)
+	write('file',$file,'Thick %12.6f',fplot2dThick)
+	write('file',$file,'Count %d',fplot2dCount)
+	write('file',$file,'Space %12.6f',fplot2dSpace)
+	write('file',$file,'Gap %12.6f',fplot2dGap)
+	write('file',$file,'XVsp %12.6f',fplot2dXVsp)
+	write('file',$file,'XVwp %12.6f',fplot2dXVwp)
+	write('file',$file,'XVadj %12.6f',fplot2dXVadj)
+	write('file',$file,'Xheight %12.6f',fplot2dXheight)
+	write('file',$file,'YVsp %12.6f',fplot2dYVsp)
+	write('file',$file,'YVwp %12.6f',fplot2dYVwp)
+	write('file',$file,'YVadj %12.6f',fplot2dYVadj)
+	write('file',$file,'Yheight %12.6f',fplot2dYheight)
+
+	//write all region stuff here in a loop
+	write('file',$file,'NumX %d',fplot2dNumX)
+	$i=1
+	while ($i <= fplot2dNumX) do
+		write('file',$file,'Xsp %12.6f',fplot2dXsp[$i])
+		write('file',$file,'Xwp %12.6f',fplot2dXwp[$i])
+		$i=$i+1
+	endwhile
+	write('file',$file,'NumY %d',fplot2dNumY)
+	$i=1
+	while ($i <= fplot2dNumY) do
+		write('file',$file,'Ysp %12.6f',fplot2dYsp[$i])
+		write('file',$file,'Ywp %12.6f',fplot2dYwp[$i])
+		$i=$i+1
+	endwhile
+
+	return
+
+elseif ($op = 'load') then
+	//load values from a file
+
+	if ($#>1) then //filename supplied
+		//get the paths setup properly
+		substr($2,'dirname'):$path
+		substr($2,'basename'):$file
+		if ($path='.') then //no path supplied assume home
+			$path=userdir+'/tablib'
+		endif
+		//check for relative path
+		$first=''
+		substr($path,1,1):$first
+		if ($first<>'/') then 
+			//lock for file in any of the appdirs
+			exists($file,$path):$e,$path
+		endif
+		$file=$path+'/'+$file
+
+		//does the file exist?
+		exists($file,'file'):$e
+		if ($e) then
+			write('line3','reading fplot2d parameters from '+$file)
+		else
+			write('error','file not found:'+$file)
+			return(1)
+		endif
+
+		fplot2d('load2',$file)
+			
+	else //have user select file
+		//there should be a generic file selector GUI...
+		//any way to use vnmrjcmd('LOC browserPanel')?
+
+		//for now, use our version
+		fplotTmpMsg='Load Plot Settings From A File'
+		if (fplotTmpPath='') then
+			fplotTmpPath=userdir+'/tablib'
+		endif
+		if (fplotTmpFile='') then
+			fplotTmpFile='plot.dat'
+		endif
+		$okcmd='fplot2d(`load`,fplotTmpPath+`/`+fplotTmpFile)'
+		$cancelcmd=''
+
+		exists('fplotfile.xml','templates/vnmrj/interface'):$e,$path
+		vnmrjcmd('popup', 'file:'+$path, \
+		'cancel:'+$cancelcmd, \
+		'ok:'+$okcmd, \
+		'title:Load Settings')
+
+	endif
+
+elseif ($op = 'load2') then
+	//can only get here if file has been verified
+	$file=$2
+
+	//initialize the file
+	lookup('file',$file)
+	lookup('read',1):$firstword
+	if ($firstword <> 'fplot2d') then
+		write('error','bad file format:'+$file)
+		return(1)
+	endif
+
+	//Note - this isn't very robust - I should reset the
+	//file pointer before each search so the order doesn't
+	//matter - I should also check each read to look for
+	//unfound searches and react as needed
+
+	//use the names to find each value and read them in
+	lookup('seekcs','Type','read'):fplot2dType
+	lookup('seekcs','Title','readline'):fplot2dTitle
+	if (fplot2dTitle='!!EMPTY!!TITLE!!') then
+		fplot2dTitle=''
+	endif
+	lookup('seekcs','TitlePos1','read'):fplot2dTitlePos[1]
+	lookup('seekcs','TitlePos2','read'):fplot2dTitlePos[2]
+	//don't change exp #'s during a reset
+	lookup('seekcs','Exp2D','read'):$val
+	//format($val,6,0):fplot2dExp2D
+	lookup('seekcs','ExpTop','read'):$val
+	//format($val,6,0):fplot2dExpTop
+	lookup('seekcs','ExpLeft','read'):$val
+	//format($val,6,0):fplot2dExpLeft
+	lookup('seekcs','Top','read'):$val
+	format($val,6,0):fplot2dTop
+	lookup('seekcs','Left','read'):$val
+	format($val,6,0):fplot2dLeft
+	lookup('seekcs','Thick','read'):$val
+	format($val,12,6):fplot2dThick
+	lookup('seekcs','Count','read'):$val
+	format($val,6,0):fplot2dCount
+	lookup('seekcs','Space','read'):$val
+	format($val,12,6):fplot2dSpace
+	lookup('seekcs','Gap','read'):$val
+	format($val,12,6):fplot2dGap
+	lookup('seekcs','XVsp','read'):$val
+	format($val,12,6):fplot2dXVsp
+	lookup('seekcs','XVwp','read'):$val
+	format($val,12,6):fplot2dXVwp
+	lookup('seekcs','XVadj','read'):$val
+	format($val,12,6):fplot2dXVadj
+	lookup('seekcs','Xheight','read'):$val
+	format($val,12,6):fplot2dXheight
+	lookup('seekcs','YVsp','read'):$val
+	format($val,12,6):fplot2dYVsp
+	lookup('seekcs','YVwp','read'):$val
+	format($val,12,6):fplot2dYVwp
+	lookup('seekcs','YVadj','read'):$val
+	format($val,12,6):fplot2dYVadj
+	lookup('seekcs','Yheight','read'):$val
+	format($val,12,6):fplot2dYheight
+
+	//read region stuff here in a loop
+	lookup('seekcs','NumX','read'):$val
+	format($val,6,0):fplot2dNumX
+	$i=1
+	while ($i <= fplot2dNumX) do
+		lookup('seekcs','Xsp','read'):$val
+		format($val,12,6):fplot2dXsp[$i]
+		lookup('seekcs','Xwp','read'):$val
+		format($val,12,6):fplot2dXwp[$i]
+		$i=$i+1
+	endwhile
+	lookup('seekcs','NumY','read'):$val
+	format($val,6,0):fplot2dNumY
+	$i=1
+	while ($i <= fplot2dNumY) do
+		lookup('seekcs','Ysp','read'):$val
+		format($val,12,6):fplot2dYsp[$i]
+		lookup('seekcs','Ywp','read'):$val
+		format($val,12,6):fplot2dYwp[$i]
+		$i=$i+1
+	endwhile
+
+	//double check a few things
+	fplot2d('fix2Dpars')
+	fplot2d('fixExp')
+	fplot2d('fixVert')
+
+	return
+
+elseif ($op = 'selectXreg') then
+	//x-axis works in both 1D and 2D mode
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if (($is2d=0) and (tn<>fplot2dXnuc)) then
+		write('error','1D spectrum does not match x-axis, expecting %s',fplot2dXnuc)
+		return(1)
+	endif
+	if (($is2d=0) and (fplot2dXref <> reffrq)) then
+		//1D spectrum taken at different field strength
+		$cr=cr/reffrq*fplot2dXref
+		$delta=delta/reffrq*fplot2dXref
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot2dNumX = fplot2dNumX+1
+	$i = fplot2dNumX
+	fplot2dXsp[$i] = $cr-$delta
+	fplot2dXwp[$i] = $delta
+
+	fplot2d('showXreg')
+	return
+
+elseif ($op = 'showXreg') then
+	//based on the showfreq macro
+	$insfile=curexp+'/insinfo'
+	if (fplot2dNumX>0) then
+		write('reset',$insfile)
+		write('file',$insfile,'                  x-axis regions ')
+		write('file',$insfile,'                  ppm1      ppm2 ')
+		write('file',$insfile,'              ----------------')
+		$i=1
+		$ppm1=0 $ppm2=0
+		repeat
+			fplot2d('conv2ppmX',fplot2dXsp[$i],fplot2dXwp[$i]):$ppm1,$ppm2
+			write('file',$insfile,'              %8.2f    %8.2f',$ppm1,$ppm2)
+			$i=$i+1
+		until $i > fplot2dNumX
+	endif
+
+	exists($insfile,'file'):$ex
+	if ($ex) then
+		fplot2d('disp')
+		dtext($insfile)
+		shell('rm -f '+$insfile):$e
+	endif	
+
+	return
+
+elseif ($op = 'clearXreg') then
+	fplot2dNumX=0
+	//?? do we need to bother with clearing the previous values??
+	return
+
+elseif ($op = 'selectTopVert') then
+	//x-axis works in both 1D and 2D
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if (($is2d=0) and (tn<>fplot2dXnuc)) then
+		write('error','1D spectrum does not match x-axis, expecting %s',fplot2dXnuc)
+		return(1)
+	endif
+	if (($is2d=0) and (fplot2dXref <> reffrq)) then
+		//1D spectrum taken at different field strength
+		$cr=cr/reffrq*fplot2dXref
+		$delta=delta/reffrq*fplot2dXref
+	else
+		$cr=cr
+		$delta=delta
+	endif
+	fplot2dXVsp = $cr-$delta
+	fplot2dXVwp = $delta
+	fplot2d('fixVert')
+	return
+
+elseif ($op = 'selectYreg') then
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if (($is2d=0) and (tn<>fplot2dYnuc)) then
+		write('error','1D spectrum does not match y-axis, expecting %s',fplot2dYnuc)
+		return(1)
+	endif
+	fplot2dNumY = fplot2dNumY+1
+	$i = fplot2dNumY
+	//y-axis depends on type
+	if ($is2d) then
+		fplot2dYsp[$i] = cr1-delta1
+		fplot2dYwp[$i] = delta1
+	else //it's a 1D spectrum
+		if (fplot2dYref <> reffrq) then
+			//1D spectrum taken at different field strength
+			$cr=cr/reffrq*fplot2dYref
+			$delta=delta/reffrq*fplot2dYref
+		else
+			$cr=cr
+			$delta=delta
+		endif
+		fplot2dYsp[$i] = $cr-$delta
+		fplot2dYwp[$i] = $delta
+	endif
+
+	fplot2d('showYreg')
+	return
+
+elseif ($op = 'showYreg') then
+	//based on the showfreq macro
+	$insfile=curexp+'/insinfo'
+	if (fplot2dNumY>0) then
+		write('reset',$insfile)
+		write('file',$insfile,'                  y-axis regions ')
+		write('file',$insfile,'                  ppm1      ppm2 ')
+		write('file',$insfile,'              ----------------')
+		$i=1
+		$ppm1=0 $ppm2=0
+		repeat
+			fplot2d('conv2ppmY',fplot2dYsp[$i],fplot2dYwp[$i]):$ppm1,$ppm2
+			write('file',$insfile,'              %8.2f    %8.2f',$ppm1,$ppm2)
+			$i=$i+1
+		until $i > fplot2dNumY
+	endif
+
+	exists($insfile,'file'):$ex
+	if ($ex) then
+		fplot2d('disp')
+		dtext($insfile)
+		shell('rm -f '+$insfile):$e
+	endif	
+
+	return
+
+elseif ($op = 'clearYreg') then
+	fplot2dNumY=0
+	//?? do we need to bother with clearing the previous values??
+	return
+
+elseif ($op = 'selectLeftVert') then
+	//y-axis depends on type
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if (($is2d=0) and (tn<>fplot2dYnuc)) then
+		write('error','1D spectrum does not match y-axis, expecting %s',fplot2dYnuc)
+		return(1)
+	endif
+	if ($is2d) then
+		fplot2dYVsp = cr1-delta1
+		fplot2dYVwp = delta1
+	else //it's a 1D spectrum
+		if (fplot2dYref <> reffrq) then
+			//1D spectrum taken at different field strength
+			$cr=cr/reffrq*fplot2dYref
+			$delta=delta/reffrq*fplot2dYref
+		else
+			$cr=cr
+			$delta=delta
+		endif
+		fplot2dYVsp = cr-delta
+		fplot2dYVwp = delta
+	endif
+	fplot2d('fixVert')
+	return
+
+elseif ($op = 'mirrorLeft') then
+	if (fplot2dType='homo') then
+		fplot2dNumX=fplot2dNumY
+		$cnt=1
+		repeat
+			fplot2dXsp[$cnt]=fplot2dYsp[$cnt]
+			fplot2dXwp[$cnt]=fplot2dYwp[$cnt]
+			$cnt=$cnt+1
+		until ($cnt>fplot2dNumX)
+		fplot2dXVsp=fplot2dYVsp
+		fplot2dXVwp=fplot2dYVwp
+		fplot2dXVadj=fplot2dYVadj
+	endif
+	return
+
+elseif ($op = 'mirrorTop') then
+	if (fplot2dType='homo') then
+		fplot2dNumY=fplot2dNumX
+		$cnt=1
+		repeat
+			fplot2dYsp[$cnt]=fplot2dXsp[$cnt]
+			fplot2dYwp[$cnt]=fplot2dXwp[$cnt]
+			$cnt=$cnt+1
+		until ($cnt>fplot2dNumY)
+		fplot2dYVsp=fplot2dXVsp
+		fplot2dYVwp=fplot2dXVwp
+		fplot2dYVadj=fplot2dXVadj
+	endif
+	return
+
+elseif ($op = 'conv2ppmX') then
+	//used by GUI to display ppm values
+	//expect $2 to be sp and $3 to be wp
+	$ppm1=0
+	$ppm2=0
+	if ($#>1) then
+		$ppm1 = $2/fplot2dXref
+	endif
+	if ($#>2) then
+		$ppm2 = $ppm1 + $3/fplot2dXref
+	endif
+	return($ppm1,$ppm2)
+
+elseif ($op = 'conv2ppmY') then
+	//used by GUI to display ppm values
+	//expect $2 to be sp and $3 to be wp
+	$ppm1=0
+	$ppm2=0
+	if ($#>1) then
+		$ppm1 = $2/fplot2dYref
+	endif
+	if ($#>2) then
+		$ppm2 = $ppm1 + $3/fplot2dYref
+	endif
+	return($ppm1,$ppm2)
+
+elseif ($op = 'convFromppmX') then
+	//used by GUI to set sp sc style variables from two ppm values
+	//expect $2 to be the first ppm and $3 to be the second ppm
+	$sp=0
+	$wp=0
+	$ppm1=0
+	$ppm2=0
+	if ($#>1) then
+		$ppm1=$2
+	endif
+	if ($#>2) then
+		$ppm2=$3
+		if ($ppm2<$ppm1) then
+			$ppm2=$ppm1
+			$ppm1=$3
+		endif
+	else
+		$ppm2=$ppm1
+	endif
+	$sp=$ppm2*fplot2dXref
+	$wp=$ppm1*fplot2dXref-$sp
+	//not sure if this works for negative gamma nuclei
+	if ($wp < 0) then
+		$sp=$ppm1*fplot2dXref
+		$wp=$ppm2*fplot2dXref-$sp
+	endif
+	return($sp,$wp)
+
+elseif ($op = 'convFromppmY') then
+	//used by GUI to set sp sc style variables from two ppm values
+	//expect $2 to be the first ppm and $3 to be the second ppm
+	$sp=0
+	$wp=0
+	$ppm1=0
+	$ppm2=0
+	if ($#>1) then
+		$ppm1=$2
+	endif
+	if ($#>2) then
+		$ppm2=$3
+		if ($ppm2<$ppm1) then
+			$ppm2=$ppm1
+			$ppm1=$3
+		endif
+	else
+		$ppm2=$ppm1
+	endif
+	$sp=$ppm2*fplot2dYref
+	$wp=$ppm1*fplot2dYref-$sp
+	//not sure if this works for negative gamma nuclei
+	if ($wp < 0) then
+		$sp=$ppm1*fplot2dYref
+		$wp=$ppm2*fplot2dYref-$sp
+	endif
+	return($sp,$wp)
+
+elseif ($op = 'join') then
+	if ($# > 1) then
+		$strexp='' format($2,1,0):$strexp
+		//make sure that the exp exists
+		exists(userdir+'/exp'+$strexp,'directory'):$e
+		if ($e) then
+			$exp='jexp'+$strexp
+			{$exp}
+			fplot2d('disp')
+		else
+			write('error','experiment '+$strexp+' does not exist')
+			return(1)
+		endif
+	endif
+	return
+
+elseif ($op = 'disp') then
+	if ($#>1) then
+		$option=$2
+		if ($option='') then $option='again' endif
+	else
+		$option='again'
+	endif
+
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	//could use graphis, but if it's in fid mode we would
+	//need to check ni anyways...
+	if ($is2d) then //use dconi
+		dconi($option)
+	else //1D spectra use ds
+		ds($option)
+	endif
+
+	return
+
+elseif ($op = 'fix2Dpars') then
+	$curexp=0
+	jexp:$curexp
+	if ($curexp<>fplot2dExp2D) then fplot2d('join',fplot2dExp2D) endif
+	$is2d=0
+	exists('ni','parameter'):$is2d
+	if ($is2d) then
+		fplot2dXnuc=tn
+		fplot2dYnuc=dn
+		$prevType=fplot2dType
+		if (reffrq=reffrq1) then
+			fplot2dType='homo'
+			fplot2dYnuc=fplot2dXnuc
+		else
+			fplot2dType='hetero'
+		endif
+		fplot2dXref=reffrq
+		invsetsw:fplot2dXp2,fplot2dXp1
+		fplot2dYref=reffrq1
+		invsetsw1:fplot2dYp2,fplot2dYp1
+		if ($prevType<>fplot2dType) then
+			fplot2d('clearYreg')
+			fplot2d('convFromppmY',fplot2dYp1,fplot2dYp2):fplot2dYVsp,fplot2dYVwp
+			$tmp=''
+			format(trunc(sfrq+0.5),4,0):$tmp
+			fplot2dTitle=$tmp+' MHz '+pslabel+' in '+$solv
+		endif
+		if ($#>1) then
+			fplot2d('convFromppmX',fplot2dXp1,fplot2dXp2):fplot2dXVsp,fplot2dXVwp
+			fplot2d('convFromppmY',fplot2dYp1,fplot2dYp2):fplot2dYVsp,fplot2dYVwp
+		endif
+	else
+		write('error','exp%s does not contain a 2D data set',fplot2dExp2D)
+		return(1)
+	endif
+	if ($curexp<>fplot2dExp2D) then fplot2d('join',$curexp) endif
+	return
+
+elseif ($op = 'fixExp') then
+	if (fplot2dExpTop=fplot2dExp2D) then 
+		fplot2dExpTop=fplot2dExp2D+1
+	endif
+	if (fplot2dType='homo') then //check Exp
+		if ($#>1) then //check 2nd option
+			if ($2='Left') then
+				fplot2dExpTop=fplot2dExpLeft
+			else
+				fplot2dExpLeft=fplot2dExpTop
+			endif
+		else //default behavior
+			fplot2dExpLeft=fplot2dExpTop
+		endif
+	else //'hetero'
+		if (fplot2dExpTop=fplot2dExpLeft) then
+			fplot2dExpLeft=fplot2dExpTop+1
+		endif
+	endif
+	return
+
+elseif ($op = 'fixVert') then
+		$xppm1=0 $xppm2=0 $yppm1=0 $yppm2=0
+		fplot2d('conv2ppmX',fplot2dXVsp,fplot2dXVwp):$xppm1,$xppm2
+		fplot2d('conv2ppmY',fplot2dYVsp,fplot2dYVwp):$yppm1,$yppm2
+		$sxppm1=fplot2dXp1 $sxppm2=fplot2dXp2
+		$syppm1=fplot2dYp1 $syppm2=fplot2dYp2
+		if ($xppm1<$sxppm1) then $xppm1=$sxppm1 endif
+		if ($xppm2>$sxppm2) then $xppm2=$sxppm2 endif
+		if ($yppm1<$syppm1) then $yppm1=$syppm1 endif
+		if ($yppm2>$syppm2) then $yppm2=$syppm2 endif
+		fplot2d('convFromppmX',$xppm1,$xppm2):fplot2dXVsp,fplot2dXVwp
+		fplot2d('convFromppmY',$yppm1,$yppm2):fplot2dYVsp,fplot2dYVwp
+	return
+
+elseif ($op = 'preview') then
+
+	//**Initial setup
+	page('clear') resetplotter
+	pslw = fplot2dThick
+	pshr=1 //necesary for 2D? or is 0 better?
+
+
+	//**Plot the title
+	if (fplot2dTitlePos[1]='top') then
+		$y=wc2max
+	else //'bottom'
+		$y=-18
+	endif
+	//can't find any macro that returns the physical width of a printed string...
+	//empirical measurements have ~100 chars across 6 inch or ~1.524 mm/char
+	$charwid = 1.6 //need to be a little generous to avoid right-justif. overlap
+	length(fplot2dTitle):$titlelen
+	$titlelen = $titlelen*$charwid
+	if (fplot2dTitlePos[2]='right') then
+		$x=wcmax-$titlelen
+	elseif (fplot2dTitlePos[2]='center') then
+		$x=(wcmax-$titlelen)/2
+	else //'left'
+		$x=0
+	endif
+	write('plotter',$x,$y,fplot2dTitle)
+
+	//sanity check the regions
+	if (fplot2dNumX=0) then
+		fplot2dNumX=1
+		fplot2d('convFromppmX',fplot2dXp1,fplot2dXp2):fplot2dXsp[1],fplot2dXwp[1]
+	endif
+	if (fplot2dNumY=0) then
+		fplot2dNumY=1
+		fplot2d('convFromppmY',fplot2dYp1,fplot2dYp2):fplot2dYsp[1],fplot2dYwp[1]
+	endif
+
+	//Setup left regions
+	$cnt=1 $totsw=0
+	while ($cnt<=fplot2dNumY) do
+		$totsw=$totsw+fplot2dYwp[$cnt]
+		$cnt=$cnt+1
+	endwhile
+	$ytotal=wc2max-(fplot2dXheight+fplot2dGap*(fplot2dNumY-1))
+	$convYsw2mm=$ytotal/$totsw
+	$cnt=1
+	while ($cnt<=fplot2dNumY) do
+		$wcy[$cnt]=fplot2dYwp[$cnt]*$convYsw2mm
+		$cnt=$cnt+1
+	endwhile
+	$cnt=2
+	$scy[1]=wc2max-fplot2dXheight-$wcy[1]
+	while ($cnt<=fplot2dNumY) do
+		$scy[$cnt]=$scy[$cnt-1]-$wcy[$cnt]-fplot2dGap
+		$cnt=$cnt+1
+	endwhile
+	
+	//Setup top regions
+	$cnt=1 $totsw=0
+	while ($cnt<=fplot2dNumX) do
+		$totsw=$totsw+fplot2dXwp[$cnt]
+		$cnt=$cnt+1
+	endwhile
+	$xtotal=wcmax-(fplot2dYheight+fplot2dGap*(fplot2dNumX-1))
+	$convXsw2mm=$xtotal/$totsw
+	$cnt=1
+	$scx[1]=0
+	while ($cnt<=fplot2dNumX) do
+		$wcx[$cnt]=fplot2dXwp[$cnt]*$convXsw2mm
+		$cnt=$cnt+1
+		$scx[$cnt]=$scx[$cnt-1]+$wcx[$cnt-1]+fplot2dGap
+	endwhile
+
+	//setup vert scale for left
+	if (fplot2dLeft) then
+		jexp(fplot2dExpLeft)
+		nm intmod='off'
+		parstyle=''
+		if (fplot2dYref <> reffrq) then
+			//1D spectrum taken at different field strength
+			sp=fplot2dYVsp/fplot2dYref*reffrq
+			wp=fplot2dYVwp/fplot2dYref*reffrq
+		else
+			sp=fplot2dYVsp
+			wp=fplot2dYVwp
+		endif
+		sc=0 wc=wcmax
+		sc2=0 wc2=wc2max
+		vp=wc2max-fplot2dYheight
+		vsadj vs=vs*fplot2dYVadj
+		vp=0
+	endif
+
+	//setup vert scale for top
+	if (fplot2dTop) then
+		jexp(fplot2dExpTop)
+		nm intmod='off'
+		parstyle=''
+		if (fplot2dXref <> reffrq) then
+			//1D spectrum taken at different field strength
+			sp=fplot2dXVsp/fplot2dXref*reffrq
+			wp=fplot2dXVwp/fplot2dXref*reffrq
+		else
+			sp=fplot2dXVsp
+			wp=fplot2dXVwp
+		endif
+		sc=0 wc=wcmax
+		sc2=0 wc2=wc2max
+		vp=wc2max-fplot2dXheight
+		vsadj vs=vs*fplot2dXVadj
+		vp=0
+	endif
+
+	//Setup 2D plot
+	jexp(fplot2dExp2D)
+	parstyle=''
+	//no resizing
+	plt2Darg('set',6,'nosize') 
+	//set exp numbers and no autoscale of 1D spectra
+	plt2Darg('set','f1','exp',fplot2dExpLeft) plt2Darg('set',7,'')
+	plt2Darg('set','f2','exp',fplot2dExpTop) plt2Darg('set',8,'')
+	//set contours and spacing
+	plt2Darg('set',2,fplot2dCount)
+	plt2Darg('set',3,fplot2dSpace)
+
+	//Plot each region
+	$cury=1
+	while ($cury<=fplot2dNumY) do
+		$curx=1
+		while ($curx<=fplot2dNumX) do
+			//setup plot and chart region
+			sp=fplot2dXsp[$curx]	
+			wp=fplot2dXwp[$curx]
+			sp1=fplot2dYsp[$cury]	
+			wp1=fplot2dYwp[$cury]
+			sc=$scx[$curx]	wc=$wcx[$curx]
+			sc2=$scy[$cury]	wc2=$wcy[$cury]
+			//set axis status
+			if ($cury=fplot2dNumY) then
+				$axisy='p'
+			else
+				$axisy='n'
+			endif
+			if ($curx=fplot2dNumX) then
+				$axisx='d'
+			else
+				$axisx='n'
+			endif
+			axis=$axisy+$axisx
+			//plot
+			plt2Darg('set',2,fplot2dCount)
+			plt2Darg('set',3,fplot2dSpace)
+			plotmanual('2d','pos')
+			plt2Darg('set',2,1)
+			plotmanual('2d','neg')
+			plt2Darg('set',2,fplot2dCount)
+			if (($cury=1) and (fplot2dTop)) then
+				plotmanual('2d','top')
+			endif
+			if (($curx=fplot2dNumX) and (fplot2dLeft)) then
+				plotmanual('2d','side')
+			endif
+			$curx=$curx+1
+		endwhile
+		$cury=$cury+1
+	endwhile
+
+
+	//return things to a good state
+	//side spectra and 2D spectrum...
+	if (fplot2dTop) then
+		jexp(fplot2dExpTop)
+		sc=0 wc=wcmax
+		sc2=0 wc2=wc2max
+		f full 
+		vp=0 vsadj
+		parstyle='bpa'
+	endif
+	if (fplot2dLeft) then
+		jexp(fplot2dExpLeft)
+		sc=0 wc=wcmax
+		sc2=0 wc2=wc2max
+		f full 
+		vp=0 vsadj
+		parstyle='bpa'
+	endif
+	jexp(fplot2dExp2D)
+	sc=0 wc=wcmax
+	sc2=0 wc2=wc2max
+	f full dconi
+	parstyle='bpa'
+
+	pageview resetplotter
+
+	return
+
+else
+	write('error','unknown option: %s',$op)
+	return(1)
+endif

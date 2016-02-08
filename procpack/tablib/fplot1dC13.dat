@@ -1,0 +1,34 @@
+fplot1d parameter set
+Type comparison
+Title  126 MHz CARBON in DMSO
+TitlePos1 top
+TitlePos2 center
+ExpMain 1
+ExpComp 2
+NegPeaks 0
+Thick     1.000000
+HRes 0
+Fsp -1802.374006
+Fwp 31249.523163
+FVsp -1802.374006
+FVwp 31249.523163
+FVadj     0.660000
+IVeach 1
+IVsp -1802.374006
+IVwp 31249.523163
+IVadj     0.500000
+Igap     3.000000
+Iscale p
+Irows 1
+Iheight     0.330000
+Iypos     0.670000
+IRsp 13822.387575
+IRwp 15624.761581
+IntVal none
+IntMod off
+Cypos     0.500000
+Cygap    10.000000
+CVsp -1802.374006
+CVwp 31249.523163
+CVadj     0.500000
+NumInsets 0

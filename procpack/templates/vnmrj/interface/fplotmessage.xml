@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+
+<template name="fplotmessage" element="pages" type="processing" >
+  <group size="400 60"
+    style="PlainText"
+    label="Message Popup"
+    bg="transparent"
+    border="None"
+    side="Top"
+    justify="Left"
+    tab="yes"
+    enable="no"
+    reference="fplotmessage"
+    useref="no"
+    subtype="Untitled"
+    expanded="yes"
+    >
+    <textmessage loc="55 10" size="300 40"
+      style="Heading3"
+      label="---"
+      vq="fplotTmpMsg"
+      set="$VALUE=fplotTmpMsg"
+      />
+  </group>
+</template>

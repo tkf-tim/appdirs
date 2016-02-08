@@ -1,0 +1,34 @@
+fplot1d parameter set
+Type simple
+Title  500 MHz PROTON in DMSO
+TitlePos1 top
+TitlePos2 center
+ExpMain 1
+ExpComp 2
+NegPeaks 0
+Thick     1.000000
+HRes 1
+Fsp   -99.957135
+Fwp  3997.729375
+FVsp   -99.957135
+FVwp  3997.729375
+FVadj     1.000000
+IVeach 1
+IVsp   -99.957135
+IVwp  3997.729375
+IVadj     1.000000
+Igap     3.000000
+Iscale h
+Irows 1
+Iheight     0.250000
+Iypos     0.660000
+IRsp   899.475209
+IRwp  2998.297031
+IntVal piv
+IntMod off
+Cypos     0.500000
+Cygap    10.000000
+CVsp   -99.957135
+CVwp  3997.729375
+CVadj     1.000000
+NumInsets 0

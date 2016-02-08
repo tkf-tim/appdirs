@@ -1,0 +1,5 @@
+2011-07-19 Creation, put any cusomizations specific to processing computers here
+2013-11-22 fplot1d added (inset plotting tool)
+2013-11-27 fplot2d added (region plotting tool)
+2013-12-04 more robust handling of experiments
+2013-12-10 minor updates to improve insets
