@@ -248,10 +248,20 @@ else # make directory if necessary and clone
   fi
 fi
 # at this point we have a repo in "${repodir}" and on the correct branch
-# All the appdirs are directories
+# All the appdirs are directories so get a lst of all directories
 cd "${repodir}"
 appdirs=$(find . -maxdepth 1 -type d -exec basename {} \; | grep -v "^\.")
 
+# Let's add the openvnmrj-utils appdir to the Application Directories
+appdirfile="${vnmruser}/persistence/appdir_${USER}"
+utildir="${ovjhome}/appdirs/openvnmrj-utils"
+appdiradded=$(grep openvnmrj-utils "${appdirfile}")
+if [[ -z ${appdiradded} && -d "${utildir}" ]]; then
+    title=$(head -1 "${utildir}/title")
+    echo "1;${ovjhome}/appdirs/openvnmrj-utils;${title}" >> "${appdirfile}"
+fi
+
+# Integration with Dan Iverson's UX
 extractdir=${ovjhome}/.extract
 if [[ -d "${extractdir}" ]]; then
   rm -rf ${extractdir}
@@ -263,34 +273,25 @@ for dir in ${appdirs}; do
   else
     title=${dir}
   fi
-# echo -e "${dir}"  >> "${extractdir}/list"
-  echo -e "${title}"  > "${extractdir}/list"
-#  git --no-pager log  --pretty=format:"%b" ${tag} > ${extractdir}/${tag}
+  echo -e "${title}"  >> "${extractdir}/list"
   if [[ -f "${dir}/description" ]]; then
     cat "${dir}/description" > "${extractdir}/${title}"
   else
     echo -e "No description for ${title}\n" > "${extractdir}/${title}"
   fi
-done
-
-if (( $verbose == 1 )); then
-  underline="====================================================================="
-  for dir in ${appdirs}; do
-    if [[ -f "${dir}/title" ]]; then
-      title=$(head -1 "${dir}/title")
-   else
-      title=${dir}
-    fi
+  if (( $verbose == 1 )); then
+    underline="====================================================================="
     echo -e "\n\n${title}"
     echo -e "${underline:0:${#title}}\n"
     if [[ -f "${dir}/description" ]]; then
-     cat "${dir}/description"
+      cat "${dir}/description"
     fi
-#    git --no-pager log  --pretty=format:"%b" ${tag}
-  done
-#for b in "`git branch`"; do echo "$b"; done | tr -d "*" | xargs gitk&
-#gitk --all &
+  fi
+done
+# last entry is not shown in ovjlist; add \n at end for now
+echo -e "" >> "${extractdir}/list"
 
+if (( $verbose == 1 )); then
   echo -e "\n${underline}\n"
   cat <<-%
 The contributions of the repository are listed above with title and descripton.
