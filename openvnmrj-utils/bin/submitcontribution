@@ -1,0 +1,399 @@
+#!/bin/bash
+#
+# A script to make a branch and tag in a repository with tag description
+# for contributions to OpenVnmrJ
+#
+# Copyright 2016 Tim Burrow
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#   http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+set -o nounset
+#set -e
+
+function showhelp {
+    cat <<-%
+Thank you for contributing to OpenVnmrJ!
+This macro will create your submission and is for
+any contribution to OpenVnmrJ. 
+
+Usage: `basename $0` [OPTIONS]
+or     `basename $0` -h
+
+OPTIONS
+=======
+    -r
+      Repository to use, if not specified, uses maclib 
+    -n
+      Name of contribution e.g. bcdc *required*
+    -p
+      Path to directory containing contribution *required*
+    -u
+      Github user name, *required*
+    -t
+      tag for version of software. e.g. 1.0 or 0.9. 1.0 is default
+    -h
+      Show this help and exits
+    -H|--https)
+      Use https URL. The default is ssh.
+
+REPOSITORIES
+============
+The repository is one of:
+  appdir: contributed application directories
+  bin: contributed binaries
+  fidlib: contributed FIDs
+  imaging: contributions for imaging
+  maclib: contributed macros
+  psglib: contributed pulse sequences
+  shapelib: contributed waveform shapes
+  templates: contributed templates
+  wtlib: weighting functions
+  misc: miscellaneous contributions
+
+Instructions
+============
+If you have not done so, fork one of the OpenVnmrJ repositories
+listed above on GitHub. See http://openvnmrj.org for more infomation.
+
+Submitting
+Make a directory with the name of your submission eg "subname"
+Make subdirectories maclib, manual, etc inside this directory
+Put your maclib files in maclib and the corresponding manual files into manual
+Copy the template README into the directory which must be named "subname.README"
+Copy the Apache License file into the directory. It must named "LICENSE"
+
+You will have:
+subname--maclib--macro file
+.......|-manual--manual files
+.......|-psglib--pulse sequences
+.......|-bin etc--other files
+.......|-LICENSE
+.......|-subname.README
+
+In this example, run the script like:
+./submitcontribution -r pathto/subname -name subname -u your-github-name
+
+This script will clone your fork, check your files and copy
+a tar.Z archive into your fork on a new branch "subname".
+
+The repository will be pushed to GitHub. 
+
+When your contribution is in your fork on GitHub, make a pull request.
+
+See http://openvnmrj.org for more information or help.
+
+BUGS
+====
+Check the TODOs in the script
+
+%
+}
+
+function badrepo() {
+  cat <<-%%
+Cannot access the repository ${1} 
+
+Check that the URL above is correct and you have correct permissions.
+If the URL starts with ssh, check this website:
+https://help.github.com/articles/generating-ssh-keys/ 
+%%
+}
+
+
+# function that returns the description from a file passed as $1
+function _description {
+local tdescription
+gobble=0
+while read -r line; do 
+  if [ ${gobble} -eq 0 ]; then
+    if [ $(expr "${line}" : "^Description:[ ].*$") -gt 0 ]; then 
+        gobble=1
+        tdescription=$(expr "${line}" : "^Description:[ ]*\(.*\)$") 
+        continue
+    fi  
+  else
+    if [ -z "${line}" ]; then ## empty line
+        gobble=0
+        continue
+    else
+#       echo "!${line}"
+       tdescription+=" ";
+       tdescription+=${line}
+       continue
+    fi  
+  fi  
+done < "$1"
+description=$(echo "${tdescription}"| fmt -s -w 72)
+}
+
+# function to see if array contains a string
+function contains() {
+  local e
+  for e in "${@:2}"; do [[ "${e}" == "${1}" ]] && return 0; done 
+  return 1;
+}
+
+
+# this is the version tag on the repository, not the version of this script
+version="1.0"
+useHTTPS=0
+newbranchmade=0
+
+repo=maclib
+
+if [[ ! -z ${vnmruser:-} ]]; then
+  ovjhome=${vnmruser}/openvnmrj
+else
+  ovjhome=~/vnmrsys/openvnmrj
+fi
+
+if [[ $? != 0 ]] ; then showhelp; exit 1 ; fi
+
+while getopts “r:n:p:u:v:hH” option; do
+
+  case "$1" in
+    r)
+      # repository to use, if not specified, uses maclib 
+      repo=${OPTARG}
+      ;;
+    n)
+      #  Name of contribution e.g. bcdc *required*
+      name=${OPTARG}
+      ;;
+    p)
+      #  path to directory containing contribution *required*
+      dirpath=${OPTARG}
+      ;;
+    u)
+      # github user name, *required*
+      githubuser=${OPTARG}
+      ;;
+    t)
+      # tag version of software. e.g. 1.0 or 0.9. 1.0 is default
+      version=${OPTARG}
+      ;;
+    h)
+      # show this help and exits
+      showhelp; exit 0 
+      ;;
+    H)
+      # use https URL. The default is ssh.
+      useHTTPS=1
+      ;;
+    /?) 
+    	echo -e "Invalid option: ${option}\n" 1>&2
+    	exit 85 
+    	;;
+  esac
+done
+
+# check inputs are good
+if [[ -z ${name:-} || -z ${dirpath:-} || -z ${githubuser:-} ]]; then
+  echo -e "Missing one of --name --path --github-user!\n"
+  showhelp
+  exit 85
+fi
+
+repos=( appdir bin fidlib imaging maclib psglib shapelib templates wtlib misc )
+contains ${repo} "${repos[@]}" || {  showhelp ; exit 1; }
+
+if [[ "OpenVnmrJ" ==  $githubuser ]]; then
+  echo "Please fork the OpenVnmrJ repository on GitHub"
+  exit 1
+fi
+
+# check if directory is base of directory we want? Or names of dir and contribution match?  TODO
+if [[ ! -d $dirpath ]]; then
+  echo "Directory ${dirpath} not found"
+  exit 1
+fi
+
+if [[ ! -d "${dirpath}"/maclib ]]; then
+  echo "Warning: directory ${dirpath}/maclib not found"
+fi
+
+if [[ ! -f "${dirpath}"/"${name}.README" ]]; then
+  echo "${name}.README not found within ${dirpath}"
+  exit 1
+fi
+
+if [[ ! -f "${dirpath}"/LICENSE ]]; then
+  echo "Warning: Apache license not found within ${dirpath}"
+fi
+
+# TODO check name and directory name match (watch for substring matching)
+# TODO check if dirpath is in a git repo? User could have cloned already...
+# TESTING URL TODO change to github
+if (( useHTTPS == 0 )); then
+  repo_url="ssh://${githubuser}@192.168.2.28:22/volume1/git_repos/${repo}.git"
+  #repo_url="ssh://git@github.com:22/${githubuser}/${repo}.git"
+  upstream_repo_url="ssh://${githubuser}@192.168.2.28:22/volume1/git_repos/${repo}.git"
+else
+  repo_url="https://github.com/${githubuser}/${repo}.git"
+  upstream_repo_url="https://github.com/OpenVnmrJ/${repo}.git"
+fi
+#https://github.com/timburrow/maclib.git
+# this is to pull upstream changes; TODO will do later
+
+# check for git repo
+git ls-remote "${repo_url}" >/dev/null 2>&1 || { badrepo "${repo_url}"; exit 1; }
+gitversion=$( git --version | sed 's/.* //g' )
+gitversionA=(${gitversion//./ })
+echo "Git version array is ${gitversionA[@]} minor version is ${gitversionA[2]}"
+gitvmajor=${gitversionA[0]}
+gitvminor=${gitversionA[1]}
+gitvincrement=${gitversionA[2]}
+
+# orphan was introduced in git 1.7.2, CentOS 6 ships with 1.7.1
+if [[ (( ${gitvmajor} < 2 )) && (( ${gitvminor} < 8 )) && (( ${gitvincrement} < 2 )) ]]; then
+  echo "warning: old git found"
+  gitcheckout="-b"
+else
+  gitcheckout="--orphan"
+fi
+# Checking done, we'll clone the forked repo
+localbranch="local"
+newbranch="${name}"
+# note I'm putting a v in from of the version
+newtag="${newbranch}-v${version}"
+# We'll clone into a different name so can coexist with OpenVnmrJ repo
+repodir="${ovjhome}/${repo}-${localbranch}"
+
+if [[ -d "${repodir}" ]]; then
+# repo probably exists already, just update
+  cd "${repodir}" || { echo "cd ${repodir} failed. Aborting"; exit 1; }
+  if [[ -d .git ]]; then
+    echo "Updating repository from ${repo_url}"
+    git checkout master
+    git pull origin || { badrepo "${repo_url}"; exit 1; }
+    git fetch --all
+# check if the branch aready exists
+    git show-ref --verify refs/heads/"${newbranch}"
+    #git show-ref --verify --quiet refs/heads/"${newbranch}"
+    if [[ $? != 0 ]]; then
+      echo "checking out new branch ${newbranch}"
+      git checkout ${gitcheckout} ${newbranch}
+      newbranchmade=1
+    else
+      # this means the branch ALREADY EXISTS and this is not a new contribution
+      if [[ version == "1.0" ]]; then
+        echo "This contribution is not new; provide a version number and try again"
+        exit 1
+      fi
+      #git show-ref --verify --quiet refs/tags/"${newtag}"
+      git show-ref --verify refs/tags/"${newtag}"
+      if [[ $? == 0 ]]; then
+        echo "The tag ${newtag} already exists; provide a new (greater) version number and try again"
+        exit 1
+      fi
+# we want to switch to master or stash if headless
+      if branch=$(git symbolic-ref --short -q HEAD); then
+        echo on branch $branch
+        if [[ $branch != "master" ]]; then
+          git checkout master
+        fi
+      else
+        echo not on any branch; will stash, but only not with old git
+        if [[ ${gitcheckout} != "-b" ]]; then
+          git stash
+        fi
+        git checkout master
+      fi
+      echo "checking out old branch ${newbranch}"
+      git checkout ${newbranch}
+    fi  
+  fi  
+else # fresh repo pulled
+  if [[ ! -d "${ovjhome}" ]]; then
+    echo "Making OpenVnmrJ directory at ${ovjhome}"
+    mkdir -p "${ovjhome}" || { echo "mkdir ${ovjhome} failed. Aborting"; exit 1; }
+  fi  
+  cd "${ovjhome}" || { echo "cd ${ovjhome} failed. Aborting"; exit 1; }
+  echo "Cloning repository from ${repo_url} into ${repodir}"
+  git clone ${repo_url} ${repodir} || { badrepo "${repo_url}"; exit 1; }
+  cd "${repodir}"
+  git fetch --all
+  git fetch --tags
+  git checkout ${gitcheckout} ${newbranch}
+  newbranchmade=1
+fi
+git remote -v
+git tag -l
+
+# at this point we can tar up the directory and add to the repo
+# Copy the README
+archivename="${name}.tar.Z"
+cp "${dirpath}"/"${name}.README" . || { echo "${name}.README not found within ${dirpath}"; exit 1; }
+
+if [[ -f "${dirpath}"/LICENSE ]]; then
+  cp "${dirpath}"/LICENSE . || { echo "LICENSE not found within ${dirpath}"; exit 1; }
+fi
+(savdir=$(pwd); cd "${dirpath}" && tar zcf "${savdir}/${archivename}" *) || { echo "Error in making archive ${archivename}"; exit 1; }
+# sign our commit and tag if possible
+gitsignkey=$(git config --global --get user.signingkey)
+if [[ -z ${gitsignkey} ]]; then
+  tagswitch="-a"
+  commitswitch="-m"
+else
+  tagswitch="-s"
+  commitswitch="-S -m"
+fi
+
+_description "${name}.README"
+
+cat  >> README.md <<-%
+##${name} 
+>${description}
+
+To install the contribution, checkout the tag ${newtag}:  
+    git checkout ${newtag}
+
+then read ${name}.README   
+
+Usually use extract to install the contribution:  
+    ./extract ${repo}/${name}
+
+%
+
+git add README.md
+git add "${name}.README"
+if [[ -f LICENSE ]];then
+  git add LICENSE
+fi
+git add "${archivename}"
+echo "git commit ${commitswitch} ${name} v${version}"
+git commit ${commitswitch} "${name} v${version}" || { echo "git commit could not be made. Please look at the error message"; exit 1; }
+git tag ${tagswitch} "${newtag}" -m "${description}"
+if (( $newbranchmade == 1 )); then
+  echo "git push --set-upstream origin ${newbranch}"
+  git push --set-upstream origin ${newbranch} \
+        || { echo "git push branch could not be made. Please look at the error message"; exit 1; }
+fi
+git push || { echo "git push could not be made. Please look at the error message"; exit 1; } 
+git push --tags
+
+cat<<-%
+
+A branch ${newbranch} has been pushed into the
+repository at ${repo_url}
+
+Please go to github to open a pull request!
+Thank you for contributing to OpenVnmJ.
+
+If you have any questions, check out
+http://openvnmrj.org/
+
+%
+
+exit 0
+
