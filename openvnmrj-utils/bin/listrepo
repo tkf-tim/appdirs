@@ -65,10 +65,8 @@ keypairs must be set up.
 
 BRANCHES
 ========
-If you intend to contribute an Application Directory, 
-start a new branch for your contribution. 
-Push your new branch to your forked repository on GitHub
-then make a pull request (in GitHub) to OpenVnmrJ
+If you intend to contribute an Application Directory, Forked the OpenVnmrJ appdir
+repository on GitHub then make a pull request (in GitHub) to OpenVnmrJ
 
 FORKS
 ====
@@ -137,7 +135,7 @@ githubuser="OpenVnmrJ"
 useHTTPS=0
 verbose=0 
 repo=appdirs
-localbranch=
+localbranch="development"
 
 if [[ $? != 0 ]] ; then showhelp; exit 1 ; fi
 
@@ -148,7 +146,7 @@ while getopts “hHr:u:p:b:v” option; do
       repo=${OPTARG}
       ;;
     b)
-      # branch to use, if not specified, uses "local" if not pulling from OpenVnmrJ
+      # branch to use, if not specified, uses "development" if not pulling from OpenVnmrJ
       localbranch=${OPTARG}
       ;;
     p)
