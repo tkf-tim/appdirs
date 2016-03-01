@@ -20,23 +20,65 @@
 set -o nounset
 set -e
 
+checkifgit() {
+  
+  local curdir=$(pwd)
+  echo -e "In ${curdir}\n"
+  cd "${1}"/
+
+  if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
+    # we are inside a git repository; perhaps an appdir clone?
+    # TODO check if a fork of appdirs, if so push?
+    # For now ignore and just work independently, but DO NOT COPY .git!
+    echo "Directory under git control"
+    local remotegit=$(git config --get remote.origin.url 2> /dev/null&)
+    echo "Checking"
+    if [[ -z ${remotegit:-} ]]; then
+      echo "No remote"
+    else
+      echo "Remote is ${remotegit}"
+    fi
+  fi
+  cd "${curdir}"
+}
+
+docopy() {
+  local src="${1}"
+  local dest="${2}"
+  local reponame="${3}"
+
+# first check if dest already exists
+  if [[ -d "${dest}/${reponame}" ]]; then
+    if (( update == 0 )); then
+      echo "Directory with name ${reponame} already exists! Use -U to update"
+      exit 1
+    fi
+      # update using rsync (no / at end of src!)
+      echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
+      rsync -av --exclude='.git*' --delete "${src}" "${dest}"
+  else
+    echo "rsync -av --exclude='.git*'  ${src} ${dest}"
+    rsync -av --exclude='.git*' "${src}" "${dest}"	
+  fi
+}
+
 update=0
 
 while getopts “s:d:U” option; do
   case "$option" in
   	s)
-  		# branch to use, if not specified, uses development
+  		# source directory
   		echo ${OPTARG}
   		src=${OPTARG}
   		echo -e "src: ${src}"
       ;; 
     d)
-      # repository to use, if not specified, uses appdirs 
+      # destination directory
       dest=${OPTARG}
       echo "dest: ${dest}"
       ;;    
     U)
-      # use https URL. The default is ssh.
+      # Update; otherwise fails if destination exists
       update=1
       ;;
     /?) 
@@ -58,13 +100,12 @@ if [[ -z ${dest:-} ]]; then
   exit 85
 fi
 
-#remove training slashes (we'll put it on when checking)
+#remove training slashes so we can put on when needed
 src=${src%/}
 dest=${dest%/}
 echo -e "Source Directory: ${src}"
 echo -e "Destination Directory: ${dest}\n"
 reponame=$(basename "${src}")
-curdir=$(pwd)
 
 if [[ ! -d "${src}"/ ]]; then
   echo "Directory ${src} not found"
@@ -72,36 +113,8 @@ if [[ ! -d "${src}"/ ]]; then
 fi
 
 # check state of directory; it is a clone of appdirs?
-cd "${src}"/
+checkifgit ${src}
 
-if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
-	# we are inside a git repository; perhaps an appdir clone?
-	# TODO check if a fork of appdirs, if so push?
-	# For now ignore and just work independently, but DO NOT COPY .git!
-	echo "Directory under git control"
-	remotegit=$(git config --get remote.origin.url 2> /dev/null&)
-	echo "Checking"
-	if [[ -z ${remotegit:-} ]]; then
-		echo "No remote"
-	else
-		echo "Remote is ${remotegit}"
-	fi
-fi
-
-cd "${curdir}"
-echo -e "In ${curdir}\n"
-# first check if already exists
-if [[ -d "${dest}/${reponame}" ]]; then
-  if (( update == 0 )); then
-		echo "Directory with name ${reponame} already exists! Use -U to update"
-		exit 1
-	fi
-		# update using rsync (no / at end of src!)
-		echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
-		rsync -av --exclude='.git*' --delete "${src}" "${dest}"
-else
-	echo "rsync -av --exclude='.git*' --dry-run ${src} ${dest}"
-	rsync -av --exclude='.git*' "${src}" "${dest}"	
-fi
+docopy "${src}" "${dest}" "{$reponame}"
 
 exit 0

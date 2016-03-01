@@ -42,12 +42,12 @@ Options
     -r
       Repository to use, if not specified, uses appdirs 
     -t
-      tag for version of software. e.g. 1.0 or 0.9; 1.0 is default
+      tag for your version of software. e.g. 1.0 or 0.9; 1.0 is default
     -u
       Github user name, *required* 
     -v
     	Verbose TODO does nothing yet
-    -H|--https)
+    -H
       Use https URL. The default is ssh.
     -U
     	Update existing application directory. See below.
@@ -58,7 +58,7 @@ All submissions must be licensed under the Apachev2 license, which can be
 read at http://www.apache.org/licenses/LICENSE-2.0.html
 Additionally, a Contributor License Agreement must be completed prior to a
 pull-request to the OpenVnmrJ repository, giving the University of Oregon 
-rights to use and diestribute your contributions. A copy may be read at
+rights to use and distribute your contributions. A copy may be read at
 https://gist.github.com/ekpaulson/73530dfe735fa54d81fa
 
 Repositories
@@ -66,8 +66,8 @@ Repositories
 The repository by default is "appdirs" which contains a directory for each user
 contributed appdir. This appdir is "openvnmrj-utils" in the appdirs repository.
 
-Instructions
-============
+Fork on GitHub
+==============
 If you have not done so, fork https://github.com/OpenVnmrJ/appdirs.git on GitHub. 
 You will need a free GitHub account, then click on the "Fork" icon on the top right
 of the repository. See https://help.github.com/articles/fork-a-repo/ for more
@@ -85,13 +85,13 @@ unless the U flag is given to update the application directory.
 
 Submitting
 ==========
-Make a fork of the OpenVnmrJ repository on GitHub.com
+Make a fork of the OpenVnmrJ repository on GitHub.com first
 
 On your OpenVnmrJ computer:
 1. Make a directory with the name of your submission. Let's call it "mysub". 
    The name must not have any spaces or special characters.
 2. Make subdirectories maclib, manual, etc inside this directory mysub
-3. Put your maclib files in maclib and the corresponding manual files into manual
+3. Put your files in the appropriate folders
 4. Make a file called description, with a text based description of your contribution.
 5. Make a file called title with a nicer name of the contribution.
 6. Copy the Apache License file into the directory. It must named "LICENSE" TODO: necessary?
@@ -111,11 +111,13 @@ mysub----maclib--macro files
 In this example, run the script like:
 ./submitcontribution -r pathto/mysub -name mysub -u your-github-name
 
-This script will clone your fork, check your files, then add them to the repository.
-Finally, the repository will be pushed to GitHub using your credientials.
+This script will clone your fork from GitHub, check your files, then add them to the repository.
+Finally, the repository will be pushed back to GitHub using your credentials.
 
+Pull request
+============
 When your contribution is in your fork on GitHub, make a pull request by going to 
-your repository on GitHub
+your repository on GitHub then clicking on the gree Pull Request button.
 
 See http://openvnmrj.org for more information or help.
 
@@ -128,7 +130,7 @@ Check the TODOs in the script
 
 function installgit() {
   cat <<-%%
-Git is required. Please install the latest version:
+Git is required. Please install by:
 
 On Ubuntu:
 sudo apt-get install git
@@ -186,6 +188,48 @@ function contains() {
   return 1;
 }
 
+checkifgit() {
+  
+  local curdir=$(pwd)
+  echo -e "In ${curdir}\n"
+  cd "${1}"/
+
+  if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
+    # we are inside a git repository; perhaps an appdir clone?
+    # TODO check if a fork of appdirs, if so push?
+    # For now ignore and just work independently, but DO NOT COPY .git!
+    echo "Directory under git control"
+    remotegit=$(git config --get remote.origin.url 2> /dev/null&)
+    echo "Checking"
+    if [[ -z ${remotegit:-} ]]; then
+      echo "No remote"
+    else
+      echo "Remote is ${remotegit}"
+    fi
+  fi
+  cd "${curdir}"
+}
+
+docopy() {
+  local src=${1}
+  local dest=${2}
+  local reponame=${3}
+  local update=${4}
+
+# first check if dest already exists
+  if [[ -d "${dest}/${reponame}" ]]; then
+    if (( ${update} == 0 )); then
+      echo "Directory with name ${reponame} already exists! Use -U to update"
+      exit 1
+    fi
+      # update using rsync (no / at end of src!)
+      echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
+      rsync -av --exclude='.git*' --delete "${src}" "${dest}"
+  else
+    echo "rsync -av --exclude='.git*'  ${src} ${dest}"
+    rsync -av --exclude='.git*' "${src}" "${dest}"	
+  fi
+}
 
 # this is the version tag on the repository, not the version of this script
 version="1.0"
@@ -266,7 +310,7 @@ if [[ -z ${githubuser:-} ]]; then
 fi
 
 if [[ -z ${dirpath:-} ]]; then
-  echo -e "Missing one of path to directory!\n"
+  echo -e "Missing path to directory!\n"
   showhelp
   exit 85
 fi
@@ -310,14 +354,7 @@ if [[ ! -f "${dirpath}"/LICENSE ]]; then
 fi
 
 # check state of directory; it is a clone of appdirs?
-cd "${dirpath}"/
-if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
-	# we are inside a git repository; perhaps an appdir clone?
-	# TODO check if a fork of appdirs, if so push?
-	# For now ignore and just work independently, but DO NOT COPY .git!
-	echo "Directory under git control"
-	remotegit=$(git config --get remote.origin.url)
-fi
+checkifgit "${dirpath}"
 
 # see if we have an ovjhome
 if [[ ! -d "${ovjhome}" ]]; then
@@ -355,26 +392,16 @@ if [[ $? != 0 ]]; then
   git checkout -b ${localbranch} || { echo "Making branch ${localbranch} failed. Aborting"; exit 1; }
   localbranchmade=1
 else
-	git checkout  ${localbranch} || { "Checking out branch ${localbranch} failed. Aborting"; exit 1; }
+	git checkout  ${localbranch} || { echo "Checking out branch ${localbranch} failed. Aborting"; exit 1; }
 	localbranchmade=0 
 fi
 
 # TODO some diagnostics
 git remote -v
 git tag -l
+git branch -v
 
-
-# first check if already exists
-if [[ -d "${repodir}/${reponame}" ]]; then
-	if (( update == 0 )); then
-		echo "Application directory with name ${reponame} already exists! Use -U to update"
-		exit 1
-	fi
-		# update using rsync (no / at end of dirpath!)
-		rsync -av --exclude='.git*' --delete "${dirpath}" "${repodir}"
-else
-	rsync -a --exclude='.git*' "${dirpath}" "${repodir}"	
-fi
+docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
 gitsignkey=$(git config --global --get user.signingkey)
@@ -390,7 +417,7 @@ description=$(cat "${dirpath}/description")
 
 if [[ ! "${dirpath}"/README.md ]]; then
 	cat  >> README.md <<-%
-##${title} 
+## ${title} 
 
 >${description}
 
@@ -402,17 +429,16 @@ git add "${reponame}"
 echo "git commit ${commitswitch} ${reponame} -m ${title}"
 git commit ${commitswitch}  -m "${title} ${reponame}" || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
-#git tag ${tagswitch} "${newtag}" -m "${description}"
+git tag ${tagswitch} "${newtag}" -m "${description}"
 
 if (( $localbranchmade == 1 )); then
   echo "git push --set-upstream origin ${localbranch}"
   git push --set-upstream origin ${localbranch} \
         || { echo "git push branch could not be made. Please look at the error message"; exit 1; }
-        
 fi
 
 git push || { echo "git push could not be made. Please look at the error message"; exit 1; } 
-#git push --tags
+git push --tags
 
 cat<<-%
 
