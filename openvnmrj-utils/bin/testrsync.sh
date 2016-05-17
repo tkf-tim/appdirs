@@ -53,12 +53,14 @@ docopy() {
       echo "Directory with name ${reponame} already exists! Use -U to update"
       exit 1
     fi
-      # update using rsync (no / at end of src!)
-      echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
-      rsync -av --exclude='.git*' --delete "${src}" "${dest}"
+      # update using rsync (/ at end of src!)
+      echo "Updating ${reponame}"
+      echo "rsync -av --exclude='.git*' --delete ${src}/ ${dest}"
+      rsync -av --exclude='.git*' --delete "${src}/" "${dest}"
   else
-    echo "rsync -av --exclude='.git*'  ${src} ${dest}"
-    rsync -av --exclude='.git*' "${src}" "${dest}"	
+  	echo "Copying ${reponame}"
+    echo "rsync -av --exclude='.git*'  ${src}/ ${dest}"
+    rsync -av --exclude='.git*' "${src}/" "${dest}"	
   fi
 }
 
