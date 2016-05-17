@@ -50,6 +50,7 @@ docopy() {
   local reponame="${3}"
 
 # first check if dest already exists
+echo "Checking for extant ${dest}/${reponame}"
   if [[ -d "${dest}/${reponame}" ]]; then
     if (( update == 0 )); then
       echo "Directory with name ${reponame} already exists! Use -U to update"
@@ -119,6 +120,7 @@ fi
 
 # check state of directory; it is a clone of appdirs?
 checkifgit ${src}
+checkifgit ${dest}
 
 docopy "${src}" "${dest}" "{$reponame}"
 
