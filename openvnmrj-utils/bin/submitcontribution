@@ -18,7 +18,7 @@
 # limitations under the License.
 #
 set -o nounset
-set -e
+#set -e
 
 function showhelp {
     cat <<-%
@@ -36,7 +36,7 @@ Options
     -h
       Show this help and exits
     -n
-      Name of contribution *required*
+      Name of contribution *required* (no spaces or special characters)
     -p
       Path to directory containing contribution *required*
     -r
@@ -44,17 +44,17 @@ Options
     -t
       tag for your version of software. e.g. 1.0 or 0.9; 1.0 is default
     -u
-      Github user name, *required* 
+      Github user name, *required* (your username on GitHub)
     -v
     	Verbose TODO does nothing yet
     -H
-      Use https URL. The default is ssh.
+      Use https URL. The default is ssh, which requires ssh keys.
     -U
     	Update existing application directory. See below.
       
 License
 =======
-All submissions must be licensed under the Apachev2 license, which can be
+All submissions must be licensed under the Apache v2 license, which can be
 read at http://www.apache.org/licenses/LICENSE-2.0.html
 Additionally, a Contributor License Agreement must be completed prior to a
 pull-request to the OpenVnmrJ repository, giving the University of Oregon 
@@ -62,7 +62,7 @@ rights to use and distribute your contributions. A copy may be read at
 https://gist.github.com/ekpaulson/73530dfe735fa54d81fa
 
 You must include a file called LICENSE in your contribution and it must
-be the Apachev2 license for inclusion in the OPenVnmrJ repository.
+be the Apachev2 license for inclusion in the OpenVnmrJ repository.
 
 Repositories
 ============
@@ -96,8 +96,8 @@ On your OpenVnmrJ computer:
 2. Make subdirectories maclib, manual, etc inside this directory mysub
 3. Put your files in the appropriate folders
 4. Make a file called description, with a text based description of your contribution.
-5. Make a file called title with a nicer name of the contribution.
-6. Copy the Apache License file into the directory. It must named "LICENSE" TODO: necessary?
+5. Make a file called title with a readable name of the contribution.
+6. Copy the Apache License file into the directory. It must named "LICENSE"
 
 You will have some or all of these:
 mysub----maclib--macro files
@@ -112,7 +112,7 @@ mysub----maclib--macro files
 .......|-title (single line with a human readable name)
 
 In this example, run the script like:
-./submitcontribution -r pathto/mysub -name mysub -u your-github-name
+./submitcontribution -p pathto/mysub -name mysub -u your-github-name
 
 This script will clone your fork from GitHub, check your files, then add them to the repository.
 Finally, the repository will be pushed back to GitHub using your credentials.
@@ -147,7 +147,8 @@ sudo yum install git
 
 On OS X:
 Install Xcode from https://developer.apple.com
-or git from http://www.git-scm.com/
+or execute xcode-select --install
+or install git from http://www.git-scm.com/
 
 then set up your git environment by setting your name and email:
 git config --global user.name "YOUR NAME"
@@ -157,7 +158,7 @@ For further information, see:
 https://help.github.com/articles/set-up-git/
 
 Please fork the respositories at https://github.com/OpenVnmrJ on GitHub!
-
+Pull requests welcome—Check the documentation to contribute.
 %%
 }
 
@@ -181,7 +182,7 @@ Check that the URL above is correct and you have correct permissions.
 If the URL starts with ssh, check this website:
 https://help.github.com/articles/generating-ssh-keys/ 
 
-Try using the -H option and an https URL
+Try using the -H option and an https URL?
 %%
 }
 
@@ -194,7 +195,6 @@ function contains() {
 }
 
 checkifgit() {
-  
   local curdir=$(pwd)
   echo -e "In ${curdir}\n"
   cd "${1}"/
@@ -213,6 +213,7 @@ checkifgit() {
     fi
   fi
   cd "${curdir}"
+  echo -e "Back to ${curdir}\n"
 }
 
 docopy() {
@@ -228,9 +229,11 @@ docopy() {
       exit 1
     fi
       # update using rsync (no / at end of src!)
+      echo "Updating extant ${dest}"
       echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
       rsync -av --exclude='.git*' --delete "${src}" "${dest}"
   else
+    echo "Copying new ${dest}"
     echo "rsync -av --exclude='.git*'  ${src} ${dest}"
     rsync -av --exclude='.git*' "${src}" "${dest}"	
   fi
@@ -359,6 +362,8 @@ if [[ ! -f "${dirpath}"/LICENSE ]]; then
   exit 1
 fi
 
+curdir="$(pwd)"
+
 # check state of directory; it is a clone of appdirs?
 checkifgit "${dirpath}"
 
@@ -392,6 +397,7 @@ git fetch --all
 git fetch --tags
 
 # check if the branch aready exists
+echo "In $(pwd) with git show-ref --verify refs/heads/${localbranch}"
 git show-ref --verify refs/heads/"${localbranch}"
 if [[ $? != 0 ]]; then
   echo "checking out new branch ${localbranch}"
@@ -407,7 +413,8 @@ git remote -v
 git tag -l
 git branch -v
 
-docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
+# We're in the repo now, so must have a path bak to the submitted directory
+docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
 gitsignkey=$(git config --global --get user.signingkey)
@@ -415,27 +422,30 @@ if [[ -z ${gitsignkey} ]]; then
   tagswitch="-a"
   commitswitch="-m"
 else
-  tagswitch="-s"
-  commitswitch="-S -m"
+  tagswitch="-a" # -s for pgp
+  commitswitch="-m" # -S -m for pgp
 fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
 
-if [[ ! "${dirpath}"/README.md ]]; then
+if [[ README.md ]]; then
 	cat  >> README.md <<-%
-## ${title} 
+## ${title}  
+*${githubuser}* 
 
 >${description}
 
 %
 
+git add README.md
 fi
 
 git add "${reponame}"
-echo "git commit ${commitswitch} ${reponame} -m ${title}"
-git commit ${commitswitch}  -m "${title} ${reponame}" || { echo "git commit could not be made. Please look at the error message"; exit 1; }
+echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
 
-git tag ${tagswitch} "${newtag}" -m "${description}"
+git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
+
+git tag ${tagswitch} "${version}" -m "${description}"
 
 if (( $localbranchmade == 1 )); then
   echo "git push --set-upstream origin ${localbranch}"
@@ -458,6 +468,8 @@ If you have any questions, check out
 http://openvnmrj.org/
 
 %
+
+#TODO update a list of submissions?
 
 exit 0
 

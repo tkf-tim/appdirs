@@ -25,7 +25,7 @@ checkifgit() {
   local curdir=$(pwd)
   echo -e "In ${curdir}\n"
   cd "${1}"/
-
+  echo  "In $(pwd)"
   if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
     # we are inside a git repository; perhaps an appdir clone?
     # TODO check if a fork of appdirs, if so push?
@@ -38,6 +38,8 @@ checkifgit() {
     else
       echo "Remote is ${remotegit}"
     fi
+  else 
+      echo "$(pwd) is not a repository!"
   fi
   cd "${curdir}"
 }
@@ -48,15 +50,18 @@ docopy() {
   local reponame="${3}"
 
 # first check if dest already exists
+echo "Checking for extant ${dest}/${reponame}"
   if [[ -d "${dest}/${reponame}" ]]; then
     if (( update == 0 )); then
       echo "Directory with name ${reponame} already exists! Use -U to update"
       exit 1
     fi
-      # update using rsync (no / at end of src!)
+      # update using rsync (no / at end of src! We move the directory to within the repo)
+      echo "Updating ${reponame}"
       echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
       rsync -av --exclude='.git*' --delete "${src}" "${dest}"
   else
+  	echo "Copying ${reponame}"
     echo "rsync -av --exclude='.git*'  ${src} ${dest}"
     rsync -av --exclude='.git*' "${src}" "${dest}"	
   fi
@@ -68,7 +73,7 @@ while getopts “s:d:U” option; do
   case "$option" in
   	s)
   		# source directory
-  		echo ${OPTARG}
+  		#echo ${OPTARG}
   		src=${OPTARG}
   		echo -e "src: ${src}"
       ;; 
@@ -88,7 +93,8 @@ while getopts “s:d:U” option; do
   esac
 done
 
-
+# src is a path to an appdir
+# dest is path to repository
 # check inputs are good
 if [[ -z ${src:-} ]]; then
   echo -e "Missing src! \n"
@@ -114,7 +120,8 @@ fi
 
 # check state of directory; it is a clone of appdirs?
 checkifgit ${src}
+checkifgit ${dest}
 
-docopy "${src}" "${dest}" "{$reponame}"
+docopy "${src}" "${dest}" "${reponame}"
 
 exit 0
