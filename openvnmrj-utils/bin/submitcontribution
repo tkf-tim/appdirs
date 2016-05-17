@@ -437,6 +437,7 @@ if [[ README.md ]]; then
 
 %
 
+git add README.md
 fi
 
 git add "${reponame}"
