@@ -439,8 +439,10 @@ if [[ ! ""${curdir}/${dirpath}"/README.md ]]; then
 fi
 
 git add "${reponame}"
-echo "git commit ${commitswitch} ${reponame} -m ${title}"
-git commit ${commitswitch}  -m "${title} ${reponame}" || { echo "git commit could not be made. Please look at the error message"; exit 1; }
+echo -e "git commit -m ${reponame} -m ${title}\n"
+echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
+
+git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
 git tag ${tagswitch} "${newtag}" -m "${description}"
 
