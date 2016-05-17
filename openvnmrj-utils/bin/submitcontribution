@@ -229,9 +229,11 @@ docopy() {
       exit 1
     fi
       # update using rsync (no / at end of src!)
+      echo "Updating extant ${dest}"
       echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
       rsync -av --exclude='.git*' --delete "${src}" "${dest}"
   else
+    echo "Copying new ${dest}"
     echo "rsync -av --exclude='.git*'  ${src} ${dest}"
     rsync -av --exclude='.git*' "${src}" "${dest}"	
   fi
@@ -409,6 +411,7 @@ git remote -v
 git tag -l
 git branch -v
 
+echo "In $(pwd)"
 docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
