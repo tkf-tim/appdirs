@@ -422,8 +422,8 @@ if [[ -z ${gitsignkey} ]]; then
   tagswitch="-a"
   commitswitch="-m"
 else
-  tagswitch="-s"
-  commitswitch="-S -m"
+  tagswitch="-a" # -s
+  commitswitch="-m" # -S -m
 fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
