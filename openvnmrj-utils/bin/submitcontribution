@@ -36,7 +36,7 @@ Options
     -h
       Show this help and exits
     -n
-      Name of contribution *required*
+      Name of contribution *required* (no spaces or special characters)
     -p
       Path to directory containing contribution *required*
     -r
@@ -44,17 +44,17 @@ Options
     -t
       tag for your version of software. e.g. 1.0 or 0.9; 1.0 is default
     -u
-      Github user name, *required* 
+      Github user name, *required* (your username on GitHub)
     -v
     	Verbose TODO does nothing yet
     -H
-      Use https URL. The default is ssh.
+      Use https URL. The default is ssh, which requires ssh keys.
     -U
     	Update existing application directory. See below.
       
 License
 =======
-All submissions must be licensed under the Apachev2 license, which can be
+All submissions must be licensed under the Apache v2 license, which can be
 read at http://www.apache.org/licenses/LICENSE-2.0.html
 Additionally, a Contributor License Agreement must be completed prior to a
 pull-request to the OpenVnmrJ repository, giving the University of Oregon 
@@ -62,7 +62,7 @@ rights to use and distribute your contributions. A copy may be read at
 https://gist.github.com/ekpaulson/73530dfe735fa54d81fa
 
 You must include a file called LICENSE in your contribution and it must
-be the Apachev2 license for inclusion in the OPenVnmrJ repository.
+be the Apachev2 license for inclusion in the OpenVnmrJ repository.
 
 Repositories
 ============
@@ -96,8 +96,8 @@ On your OpenVnmrJ computer:
 2. Make subdirectories maclib, manual, etc inside this directory mysub
 3. Put your files in the appropriate folders
 4. Make a file called description, with a text based description of your contribution.
-5. Make a file called title with a nicer name of the contribution.
-6. Copy the Apache License file into the directory. It must named "LICENSE" TODO: necessary?
+5. Make a file called title with a readable name of the contribution.
+6. Copy the Apache License file into the directory. It must named "LICENSE"
 
 You will have some or all of these:
 mysub----maclib--macro files
@@ -147,7 +147,8 @@ sudo yum install git
 
 On OS X:
 Install Xcode from https://developer.apple.com
-or git from http://www.git-scm.com/
+or execute xcode-select --install
+or install git from http://www.git-scm.com/
 
 then set up your git environment by setting your name and email:
 git config --global user.name "YOUR NAME"
@@ -157,7 +158,7 @@ For further information, see:
 https://help.github.com/articles/set-up-git/
 
 Please fork the respositories at https://github.com/OpenVnmrJ on GitHub!
-
+Pull requests welcome—Check the documentation to contribute.
 %%
 }
 
@@ -181,7 +182,7 @@ Check that the URL above is correct and you have correct permissions.
 If the URL starts with ssh, check this website:
 https://help.github.com/articles/generating-ssh-keys/ 
 
-Try using the -H option and an https URL
+Try using the -H option and an https URL?
 %%
 }
 

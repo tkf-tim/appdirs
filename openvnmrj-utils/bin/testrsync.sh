@@ -53,14 +53,14 @@ docopy() {
       echo "Directory with name ${reponame} already exists! Use -U to update"
       exit 1
     fi
-      # update using rsync (/ at end of src!)
+      # update using rsync (no / at end of src! We move the directory to within the repo)
       echo "Updating ${reponame}"
-      echo "rsync -av --exclude='.git*' --delete ${src}/ ${dest}"
-      rsync -av --exclude='.git*' --delete "${src}/" "${dest}"
+      echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
+      rsync -av --exclude='.git*' --delete "${src}" "${dest}"
   else
   	echo "Copying ${reponame}"
-    echo "rsync -av --exclude='.git*'  ${src}/ ${dest}"
-    rsync -av --exclude='.git*' "${src}/" "${dest}"	
+    echo "rsync -av --exclude='.git*'  ${src} ${dest}"
+    rsync -av --exclude='.git*' "${src}" "${dest}"	
   fi
 }
 
@@ -90,7 +90,8 @@ while getopts “s:d:U” option; do
   esac
 done
 
-
+# src is a path to an appdir
+# dest w=shoudl be 
 # check inputs are good
 if [[ -z ${src:-} ]]; then
   echo -e "Missing src! \n"
