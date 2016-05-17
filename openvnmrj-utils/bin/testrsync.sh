@@ -25,7 +25,7 @@ checkifgit() {
   local curdir=$(pwd)
   echo -e "In ${curdir}\n"
   cd "${1}"/
-  echo -e "In $(pwd)\n"
+  echo  "In $(pwd)"
   if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
     # we are inside a git repository; perhaps an appdir clone?
     # TODO check if a fork of appdirs, if so push?
