@@ -195,7 +195,6 @@ function contains() {
 }
 
 checkifgit() {
-  
   local curdir=$(pwd)
   echo -e "In ${curdir}\n"
   cd "${1}"/
@@ -214,6 +213,7 @@ checkifgit() {
     fi
   fi
   cd "${curdir}"
+  echo -e "Back to ${curdir}\n"
 }
 
 docopy() {
@@ -362,6 +362,8 @@ if [[ ! -f "${dirpath}"/LICENSE ]]; then
   exit 1
 fi
 
+curdir="$(pwd)"
+
 # check state of directory; it is a clone of appdirs?
 checkifgit "${dirpath}"
 
@@ -412,7 +414,7 @@ git tag -l
 git branch -v
 
 echo "In $(pwd)"
-docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
+docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
 gitsignkey=$(git config --global --get user.signingkey)
@@ -426,7 +428,7 @@ fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
 
-if [[ ! "${dirpath}"/README.md ]]; then
+if [[ ! ""${curdir}/${dirpath}"/README.md ]]; then
 	cat  >> README.md <<-%
 ## ${title} 
 
