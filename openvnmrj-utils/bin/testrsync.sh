@@ -122,6 +122,6 @@ fi
 checkifgit ${src}
 checkifgit ${dest}
 
-docopy "${src}" "${dest}" "{$reponame}"
+docopy "${src}" "${dest}" "${reponame}"
 
 exit 0
