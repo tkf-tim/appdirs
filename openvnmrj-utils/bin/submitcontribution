@@ -413,7 +413,7 @@ git remote -v
 git tag -l
 git branch -v
 
-echo "In $(pwd)"
+# We're in the repo now, so must have a path bak to the submitted directory
 docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
@@ -422,15 +422,16 @@ if [[ -z ${gitsignkey} ]]; then
   tagswitch="-a"
   commitswitch="-m"
 else
-  tagswitch="-a" # -s
-  commitswitch="-m" # -S -m
+  tagswitch="-a" # -s for pgp
+  commitswitch="-m" # -S -m for pgp
 fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
 
-if [[ ! "${curdir}/${dirpath}"/README.md ]]; then
+if [[ README.md ]]; then
 	cat  >> README.md <<-%
-## ${title} 
+## ${title}  
+*${githubuser}* 
 
 >${description}
 
@@ -466,6 +467,8 @@ If you have any questions, check out
 http://openvnmrj.org/
 
 %
+
+#TODO update a list of submissions?
 
 exit 0
 
