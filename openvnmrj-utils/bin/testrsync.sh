@@ -25,7 +25,7 @@ checkifgit() {
   local curdir=$(pwd)
   echo -e "In ${curdir}\n"
   cd "${1}"/
-
+  echo -e "In $(pwd)\n"
   if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
     # we are inside a git repository; perhaps an appdir clone?
     # TODO check if a fork of appdirs, if so push?
@@ -38,6 +38,8 @@ checkifgit() {
     else
       echo "Remote is ${remotegit}"
     fi
+  else 
+      echo "$(pwd) is not a repository!"
   fi
   cd "${curdir}"
 }
@@ -70,7 +72,7 @@ while getopts “s:d:U” option; do
   case "$option" in
   	s)
   		# source directory
-  		echo ${OPTARG}
+  		#echo ${OPTARG}
   		src=${OPTARG}
   		echo -e "src: ${src}"
       ;; 
@@ -91,7 +93,7 @@ while getopts “s:d:U” option; do
 done
 
 # src is a path to an appdir
-# dest w=shoudl be 
+# dest is path to repository
 # check inputs are good
 if [[ -z ${src:-} ]]; then
   echo -e "Missing src! \n"
