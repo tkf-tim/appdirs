@@ -443,7 +443,7 @@ echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
 
 git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
-git tag ${tagswitch} "${newtag}" -m "${description}"
+git tag ${tagswitch} "${version}" -m "${description}"
 
 if (( $localbranchmade == 1 )); then
   echo "git push --set-upstream origin ${localbranch}"
