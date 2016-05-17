@@ -18,7 +18,7 @@
 # limitations under the License.
 #
 set -o nounset
-set -e
+#set -e
 
 function showhelp {
     cat <<-%
