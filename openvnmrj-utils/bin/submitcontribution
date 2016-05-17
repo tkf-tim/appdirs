@@ -428,7 +428,7 @@ fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
 
-if [[ ! ""${curdir}/${dirpath}"/README.md ]]; then
+if [[ ! "${curdir}/${dirpath}"/README.md ]]; then
 	cat  >> README.md <<-%
 ## ${title} 
 
@@ -439,7 +439,6 @@ if [[ ! ""${curdir}/${dirpath}"/README.md ]]; then
 fi
 
 git add "${reponame}"
-echo -e "git commit -m ${reponame} -m ${title}\n"
 echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
 
 git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
