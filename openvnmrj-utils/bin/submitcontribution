@@ -35,8 +35,6 @@ Options
       branch to use. By default the development (unstable) branch is used. See below.
     -h
       Show this help and exits
-    -n
-      Name of contribution *required* (no spaces or special characters)
     -p
       Path to directory containing contribution *required*
     -r
@@ -85,6 +83,8 @@ Updating
 ========
 If an application directory with the same name already exists, this script will exit
 unless the U flag is given to update the application directory.
+
+Update the tag to indicate a new version, for example -t 1.1
 
 Submitting
 ==========
@@ -275,7 +275,7 @@ while getopts “b:r:p:u:v:hHt:U” option; do
       githubuser=${OPTARG}
       ;;
     t)
-      # tag version of software. e.g. 1.0 or 0.9. 1.0 is default
+      # tag version of software. e.g. 1.0 or 0.9. 1.0 is default. Combined with submission name.
       version=${OPTARG}
       ;;
     h)
@@ -310,15 +310,16 @@ if [[ -z ${gitusername:-} || -z ${gitemail:-} ]]; then
   exit 1
 fi
 
+echo "githubuser: ${githubuser}"
 # check inputs are good
 if [[ -z ${githubuser:-} ]]; then
-  echo -e "Missing GITHUBUSER!\n"
+  echo -e "Missing -u GITHUBUSER!\n"
   showhelp
   exit 85
 fi
 
 if [[ -z ${dirpath:-} ]]; then
-  echo -e "Missing path to directory!\n"
+  echo -e "Missing -p path to directory!\n"
   showhelp
   exit 85
 fi
@@ -359,6 +360,7 @@ fi
 
 if [[ ! -f "${dirpath}"/LICENSE ]]; then
   echo "Error: Apache license not found within ${dirpath}"
+  echo -e "\nPlease include one file named LICENSE containing the Apache v2 license"
   exit 1
 fi
 
@@ -413,7 +415,7 @@ git remote -v
 git tag -l
 git branch -v
 
-# We're in the repo now, so must have a path bak to the submitted directory
+# We're in the repo now, so must have a path back to the submitted directory
 docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
@@ -431,7 +433,7 @@ description=$(cat "${dirpath}/description")
 if [[ README.md ]]; then
 	cat  >> README.md <<-%
 ## ${title}  
-*${githubuser}* 
+*Version ${version} submitted by ${githubuser}*  
 
 >${description}
 
@@ -445,7 +447,7 @@ echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
 
 git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
-git tag ${tagswitch} "${version}" -m "${description}"
+git tag ${tagswitch} "${reponame}-${version}" -m "${description}"
 
 if (( $localbranchmade == 1 )); then
   echo "git push --set-upstream origin ${localbranch}"
