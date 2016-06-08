@@ -59,6 +59,6 @@ elseif ($1 = 'ok') then
   write('file',gitDir+'/Title','%s',gitTitle)
   chkname(gitName,'alnum'):$name
   write('line3','submitcontribution -r "%s" -n %s -u "%s"',gitDir,$name,gitUser)
-  shell('submitcontribution -r "'+gitDir+'" -n '+$name+' -u "'+gitUser'"'):$shellex
+  shell('submitcontribution -r "'+gitDir+'" -n '+$name+' -u "'+gitUser+'"'):$shellex
   write('file',userdir+'/openvnmrj/'+$name+'-submit',$shellex)
 endif
