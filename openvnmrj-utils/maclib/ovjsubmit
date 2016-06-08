@@ -48,7 +48,7 @@ elseif ($1 = 'ok') then
     return
   endif
   $lpath=userdir+'/openvnmrj/LICENSE'
-  $lpath=userdir+'/openvnmrj/maclib/LICENSE'
+"  $lpath=userdir+'/openvnmrj/maclib/LICENSE'"
   exists($lpath,'file'):$e
   if ($e=0) then
     write('line3','LICENSE file (%s) does not exist',$lpath)
