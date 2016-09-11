@@ -86,6 +86,8 @@ Updating
 If an application directory with the same name already exists, this script will exit
 unless the U flag is given to update the application directory.
 
+Update the tag to indicate a new version, for example -t 1.1
+
 Submitting
 ==========
 Make a fork of the OpenVnmrJ repository on GitHub.com first
@@ -120,7 +122,7 @@ Finally, the repository will be pushed back to GitHub using your credentials.
 Pull request
 ============
 When your contribution is in your fork on GitHub, make a pull request by going to 
-your repository on GitHub then clicking on the gree Pull Request button.
+your repository on GitHub then clicking on the green Pull Request button.
 
 See http://openvnmrj.org for more information or help.
 
@@ -196,24 +198,30 @@ function contains() {
 
 checkifgit() {
   local curdir=$(pwd)
-  echo -e "In ${curdir}\n"
+  if (( $verbose == 1 )); then
+    echo -e "In ${curdir}\n"
+  fi
   cd "${1}"/
 
   if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
     # we are inside a git repository; perhaps an appdir clone?
     # TODO check if a fork of appdirs, if so push?
     # For now ignore and just work independently, but DO NOT COPY .git!
-    echo "Directory under git control"
-    remotegit=$(git config --get remote.origin.url 2> /dev/null&)
-    echo "Checking"
-    if [[ -z ${remotegit:-} ]]; then
-      echo "No remote"
-    else
-      echo "Remote is ${remotegit}"
+    if (( $verbose == 1 )); then
+      echo "Directory under git control"
+      remotegit=$(git config --get remote.origin.url 2> /dev/null&)
+      echo "Checking"
+      if [[ -z ${remotegit:-} ]]; then
+        echo "No remote"
+      else
+        echo "Remote is ${remotegit}"
+      fi
     fi
   fi
   cd "${curdir}"
-  echo -e "Back to ${curdir}\n"
+  if (( $verbose == 1 )); then
+    echo -e "Back to ${curdir}\n"
+  fi
 }
 
 docopy() {
@@ -229,13 +237,21 @@ docopy() {
       exit 1
     fi
       # update using rsync (no / at end of src!)
+    if (( $verbose == 1 )); then
       echo "Updating extant ${dest}"
       echo "rsync -av --exclude='.git*' --delete ${src} ${dest}"
       rsync -av --exclude='.git*' --delete "${src}" "${dest}"
+    else
+      rsync -a --exclude='.git*' --delete "${src}" "${dest}"
+    fi
   else
-    echo "Copying new ${dest}"
-    echo "rsync -av --exclude='.git*'  ${src} ${dest}"
-    rsync -av --exclude='.git*' "${src}" "${dest}"	
+    if (( $verbose == 1 )); then
+      echo "Copying new ${dest}"
+      echo "rsync -av --exclude='.git*'  ${src} ${dest}"
+      rsync -av --exclude='.git*' "${src}" "${dest}"
+    else
+      rsync -a --exclude='.git*' "${src}" "${dest}"
+    fi
   fi
 }
 
@@ -256,7 +272,7 @@ fi
 
 if [[ $? != 0 ]] ; then showhelp; exit 1 ; fi
 
-while getopts “b:r:p:u:v:hHt:U” option; do
+while getopts “b:r:p:u:vhHt:U” option; do
   case "$option" in
     b)
       # branch to use, if not specified, uses development
@@ -275,7 +291,7 @@ while getopts “b:r:p:u:v:hHt:U” option; do
       githubuser=${OPTARG}
       ;;
     t)
-      # tag version of software. e.g. 1.0 or 0.9. 1.0 is default
+      # tag version of software. e.g. 1.0 or 0.9. 1.0 is default. Combined with submission name.
       version=${OPTARG}
       ;;
     h)
@@ -291,7 +307,6 @@ while getopts “b:r:p:u:v:hHt:U” option; do
       update=1
       ;;
    	v)
-  		# verbose
   		verbose=1
       ;;     
     /?) 
@@ -312,20 +327,26 @@ fi
 
 # check inputs are good
 if [[ -z ${githubuser:-} ]]; then
-  echo -e "Missing GITHUBUSER!\n"
+  githubuser=$gitusername
+fi
+
+if [[ -z ${githubuser:-} ]]; then
+  echo -e "Missing -u GITHUBUSER!\n"
   showhelp
   exit 85
 fi
 
 if [[ -z ${dirpath:-} ]]; then
-  echo -e "Missing path to directory!\n"
+  echo -e "Missing -p path to directory!\n"
   showhelp
   exit 85
 fi
 
-#remove training slash (we'll put it on when checking)
+#remove trailing slash (we'll put it on when checking)
 dirpath=${dirpath%/}
-echo -e "Directory: ${dirpath}"
+if (( $verbose == 1 )); then
+  echo -e "Directory: ${dirpath}"
+fi
 reponame=$(basename "${dirpath}")
 
 API_URL="https://api.github.com/users/${githubuser}/repos?type=owner"
@@ -359,6 +380,7 @@ fi
 
 if [[ ! -f "${dirpath}"/LICENSE ]]; then
   echo "Error: Apache license not found within ${dirpath}"
+  echo -e "\nPlease include one file named LICENSE containing the Apache v2 license"
   exit 1
 fi
 
@@ -390,17 +412,23 @@ if [[ -d "${repodir}" ]]; then
 	rm -rf "${repodir}"
 fi
 
-echo "Cloning repository from ${repo_url} into ${repodir}"
+if (( $verbose == 1 )); then
+  echo "Cloning repository from ${repo_url} into ${repodir}"
+fi
 git clone ${repo_url} ${repodir} || { badrepo "${repo_url}"; exit 1; }
 cd "${repodir}"/
 git fetch --all
 git fetch --tags
 
 # check if the branch aready exists
-echo "In $(pwd) with git show-ref --verify refs/heads/${localbranch}"
-git show-ref --verify refs/heads/"${localbranch}"
+if (( $verbose == 1 )); then
+  echo "In $(pwd) with git show-ref --verify refs/heads/${localbranch}"
+fi
+git show-ref --verify refs/heads/"${localbranch}" 2> /dev/null
 if [[ $? != 0 ]]; then
-  echo "checking out new branch ${localbranch}"
+  if (( $verbose == 1 )); then
+    echo "checking out new branch ${localbranch}"
+  fi
   git checkout -b ${localbranch} || { echo "Making branch ${localbranch} failed. Aborting"; exit 1; }
   localbranchmade=1
 else
@@ -409,9 +437,11 @@ else
 fi
 
 # TODO some diagnostics
-git remote -v
-git tag -l
-git branch -v
+if (( $verbose == 1 )); then
+  git remote -v
+  git tag -l
+  git branch -v
+fi
 
 # We're in the repo now, so must have a path bak to the submitted directory
 docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
@@ -431,24 +461,28 @@ description=$(cat "${dirpath}/description")
 if [[ README.md ]]; then
 	cat  >> README.md <<-%
 ## ${title}  
-*${githubuser}* 
+*Version ${version} submitted by ${githubuser}*
 
 >${description}
 
 %
 
-git add README.md
+  git add README.md
 fi
 
 git add "${reponame}"
-echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
+if (( $verbose == 1 )); then
+  echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
+fi
 
 git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
 git tag ${tagswitch} "${version}" -m "${description}"
 
 if (( $localbranchmade == 1 )); then
-  echo "git push --set-upstream origin ${localbranch}"
+  if (( $verbose == 1 )); then
+    echo "git push --set-upstream origin ${localbranch}"
+  fi
   git push --set-upstream origin ${localbranch} \
         || { echo "git push branch could not be made. Please look at the error message"; exit 1; }
 fi
