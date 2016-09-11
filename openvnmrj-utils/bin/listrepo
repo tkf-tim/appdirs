@@ -18,7 +18,7 @@
 # limitations under the License.
 #
 # This uses ONE repository (appdirs) in the GitHub OpenVnmrJ organization
-# It'll pull down or update thi repisitory.
+# It'll pull down or update the appdirs repository.
 # Each directory will hold one appdir, which then could be enabled or disabled
 # The script will update the file ~vnmrsys/TODO and append the appdir so
 # the GUI only needs to activate
@@ -46,7 +46,7 @@ OPTIONS
     -h
       show help and exit
     -v
-      output list of appliation directories
+      output list of application directories
 
 
 GITHUB USERNAME
@@ -254,12 +254,14 @@ appdirs=$(find . -maxdepth 1 -type d -exec basename {} \; | grep -v "^\.")
 
 # Let's add the openvnmrj-utils appdir to the Application Directories
 appdirfile="${vnmruser}/persistence/appdir_${USER}"
-utildir="${ovjhome}/appdirs/openvnmrj-utils"
+utildir="${ovjhome}/${repo}/openvnmrj-utils"
 appdiradded=$(grep openvnmrj-utils "${appdirfile}")
 if [[ -z ${appdiradded} && -d "${utildir}" ]]; then
     title=$(head -1 "${utildir}/title")
     echo "1;${ovjhome}/appdirs/openvnmrj-utils;${title}" >> "${appdirfile}"
 fi
+# copy license file (required for ovjsubmit)
+cp "${ovjhome}/${repo}/LICENSE" "${ovjhome}/"
 
 # Integration with Dan Iverson's UX
 extractdir=${ovjhome}/.extract
