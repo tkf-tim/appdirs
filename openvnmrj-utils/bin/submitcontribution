@@ -35,8 +35,6 @@ Options
       branch to use. By default the development (unstable) branch is used. See below.
     -h
       Show this help and exits
-    -n
-      Name of contribution *required* (no spaces or special characters)
     -p
       Path to directory containing contribution *required*
     -r
@@ -114,7 +112,11 @@ mysub----maclib--macro files
 .......|-title (single line with a human readable name)
 
 In this example, run the script like:
+<<<<<<< HEAD
 ./submitcontribution -p pathto/mysub -name mysub -u your-github-name
+=======
+./submitcontribution -p pathto/mysub -u your-github-name
+>>>>>>> master
 
 This script will clone your fork from GitHub, check your files, then add them to the repository.
 Finally, the repository will be pushed back to GitHub using your credentials.
@@ -198,9 +200,11 @@ function contains() {
 
 checkifgit() {
   local curdir=$(pwd)
+
   if (( $verbose == 1 )); then
     echo -e "In ${curdir}\n"
   fi
+
   cd "${1}"/
 
   if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
@@ -306,8 +310,8 @@ while getopts “b:r:p:u:vhHt:U” option; do
       # Update existing appdir
       update=1
       ;;
-   	v)
-  		verbose=1
+    v)
+      verbose=1
       ;;     
     /?) 
     	echo -e "Invalid option: ${option}\n" 1>&2
@@ -335,6 +339,7 @@ if [[ -z ${githubuser:-} ]]; then
   showhelp
   exit 85
 fi
+echo "githubuser: ${githubuser}"
 
 if [[ -z ${dirpath:-} ]]; then
   echo -e "Missing -p path to directory!\n"
@@ -362,10 +367,6 @@ fi
 if [[ ! -d "${dirpath}"/ ]]; then
   echo "Directory ${dirpath} not found"
   exit 1
-fi
-
-if [[ ! -d "${dirpath}"/maclib ]]; then
-  echo "Warning: directory ${dirpath}/maclib not found"
 fi
 
 if [[ ! -f "${dirpath}"/description ]]; then
@@ -443,8 +444,10 @@ if (( $verbose == 1 )); then
   git branch -v
 fi
 
-# We're in the repo now, so must have a path bak to the submitted directory
-docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
+
+# We're in the repo now, so must have a path back to the submitted directory
+# docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
+docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
 
 # sign our commit and tag if possible
 gitsignkey=$(git config --global --get user.signingkey)
@@ -460,7 +463,7 @@ description=$(cat "${dirpath}/description")
 
 if [[ README.md ]]; then
 	cat  >> README.md <<-%
-## ${title}  
+## ${title}
 *Version ${version} submitted by ${githubuser}*
 
 >${description}
@@ -477,7 +480,7 @@ fi
 
 git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
-git tag ${tagswitch} "${version}" -m "${description}"
+git tag ${tagswitch} "${reponame}-${version}" -m "${description}"
 
 if (( $localbranchmade == 1 )); then
   if (( $verbose == 1 )); then
