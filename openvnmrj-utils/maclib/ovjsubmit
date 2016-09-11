@@ -1,64 +1,96 @@
 " ovjsubmit - macro to handle OpenVnmrJ submissions"
 
-if ($# = 0) then
-  create('gitDir','string','global','')
-  create('gitName','string','global','')
-  create('gitUser','string','global','')
-  create('gitTitle','string','global','')
-  setgroup('gitDir','display','global')
-  setgroup('gitName','display','global')
-  setgroup('gitUser','display','global')
-  setgroup('gitTitle','display','global')
-  setprotect('gitDir','on',32768,'global')
-  setprotect('gitName','on',32768,'global')
-  setprotect('gitUser','on',32768,'global')
-  setprotect('gitTitle','on',32768,'global')
-
+if ($# < 2) then
+  shell('which git 2>/dev/null'):$path
+  if ($path='') then
+    write('line3','The Linux utility git must be installed')
+    return
+  endif
   exists('gitsubmit.xml','templates/vnmrj/interface'):$e,$xmlfile
+  if (not $e) then
+    write('line3','Warning: template missing for %s',$0)
+    return
+  endif
+  shell('git config user.name'):$github
+  if ( $github = '') then
+    write('line3','The github user is not defined. See man page for %s',$0)
+    return
+  endif
+  create('gitDir','string','global',''):$e
+  create('gitTitle','string','global',''):$e
+  create('gitUser','string','global',''):$e
+  setgroup('gitDir','display','global')
+  setgroup('gitTitle','display','global')
+  setgroup('gitUser','display','global')
+  setprotect('gitDir','on',32768,'global')
+  setprotect('gitTitle','on',32768,'global')
+  setprotect('gitUser','on',32768,'global')
+  if ($#=1) then
+    gitDir=$1
+    exists(gitDir+'/description','file'):$e
+    if ($e) then
+      copy(gitDir+'/description',curexp+'/description')
+    endif
+  endif
+  gitUser=$github
+  exists(curexp+'/submitlog','file'):$e
+  if ($e) then
+    delete(curexp+'/submitlog'):$e
+  endif
   
-  vnmrjcmd('popup', 'mode:modal', 'file:'+$xmlfile, 'rebuild:yes', \
+  vnmrjcmd('popup', 'mode:modeless', 'file:'+$xmlfile, 'rebuild:yes', \
    'location:topMenuBar', \
-   'pnewupdate:true', 'cancel:'+$0+'(`cancel`)', 'ok:'+$0+'(`ok`)', \
-   'title:Application Directories')
+   'pnewupdate:true', \
+   'close:'+$0+'(`close`,1)', \
+   'title:OpenVnmrJ Applications Submission')
 
-elseif ($1 = 'ok') then
-  if (gitDir='') or (gitName='') or (gitUser='') or (gitTitle='') then
-    if (gitDir='') then
-      write('line3','Applications directory for submission not specified')
+else
+  if ($1 = 'save') then
+    if (gitDir='') or (gitTitle='') then
+      if (gitDir='') then
+        write('line3','Applications directory for submission not specified')
+      endif
+      if (gitTitle='') then
+        write('line3','Submission Title not specified')
+      endif
+      return
     endif
-    if (gitName='') then
-      write('line3','Submission name not specified')
+    exists(gitDir,'directory'):$e
+    if ($e=0) then
+      write('line3','Applications directory for submission does not exist')
+      return
     endif
-    if (gitUser='') then
-      write('line3','Submission User not specified')
+    exists(curexp+'/description','file'):$e
+    if ($e=0) then
+      write('line3','Description file for submission does not exist')
+      return
     endif
-    if (gitTitle='') then
-      write('line3','Submission Title not specified')
+    exists(curexp+'/submitlog','file'):$e
+    if ($e) then
+      write('reset',curexp+'/submitlog')
+      vnmrjcmd('pnew','curexp')
     endif
-    return
+    copy(curexp+'/description',gitDir+'/description')
+    $lpath=userdir+'/openvnmrj/LICENSE'
+    exists($lpath,'file'):$e
+    if ($e=0) then
+      write('line3','LICENSE file (%s) does not exist',$lpath)
+      return
+    endif
+    copy($lpath,gitDir+'/LICENSE')
+    write('reset',gitDir+'/title')
+    write('file',gitDir+'/title','%s',gitTitle)
+    shell('submitcontribution -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    // The -v option turns on the verbose flag for submitcontribution
+    // shell('submitcontribution -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    vnmrjcmd('pnew','curexp')
+  elseif ($1 = 'close') then
+    destroy('gitDir','global'):$e
+    destroy('gitTitle','global'):$e
+    destroy('gitUser','global'):$e
+    exists(curexp+'/description','file'):$e
+    if ($e) then
+      delete(curexp+'/description'):$e
+    endif
   endif
-  exists(gitDir,'directory'):$e
-  if ($e=0) then
-    write('line3','Applications directory for submission does not exist')
-    return
-  endif
-  exists(gitDir+'/README.md','file'):$e
-  if ($e=0) then
-    write('line3','README file for submission does not exist')
-    return
-  endif
-  $lpath=userdir+'/openvnmrj/LICENSE'
-"  $lpath=userdir+'/openvnmrj/maclib/LICENSE'"
-  exists($lpath,'file'):$e
-  if ($e=0) then
-    write('line3','LICENSE file (%s) does not exist',$lpath)
-    return
-  endif
-  copy($lpath,gitDir+'/LICENSE')
-  write('reset',gitDir+'/Title')
-  write('file',gitDir+'/Title','%s',gitTitle)
-  chkname(gitName,'alnum'):$name
-  write('line3','submitcontribution -r "%s" -n %s -u "%s"',gitDir,$name,gitUser)
-  shell('submitcontribution -r "'+gitDir+'" -n '+$name+' -u "'+gitUser+'"'):$dum
-  "write('file',userdir+'/openvnmrj/'+$name+'-submit',$shellex)"
 endif
