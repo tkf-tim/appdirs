@@ -112,7 +112,11 @@ mysub----maclib--macro files
 .......|-title (single line with a human readable name)
 
 In this example, run the script like:
+<<<<<<< HEAD
+./submitcontribution -p pathto/mysub -name mysub -u your-github-name
+=======
 ./submitcontribution -p pathto/mysub -u your-github-name
+>>>>>>> master
 
 This script will clone your fork from GitHub, check your files, then add them to the repository.
 Finally, the repository will be pushed back to GitHub using your credentials.
@@ -196,7 +200,7 @@ function contains() {
 
 checkifgit() {
   local curdir=$(pwd)
-  
+
   if (( $verbose == 1 )); then
     echo -e "In ${curdir}\n"
   fi
@@ -248,9 +252,9 @@ docopy() {
     if (( $verbose == 1 )); then
       echo "Copying new ${dest}"
       echo "rsync -av --exclude='.git*'  ${src} ${dest}"
-      rsync -av --exclude='.git*' "${src}" "${dest}"	
+      rsync -av --exclude='.git*' "${src}" "${dest}"
     else
-      rsync -a --exclude='.git*' "${src}" "${dest}"	
+      rsync -a --exclude='.git*' "${src}" "${dest}"
     fi
   fi
 }
@@ -329,6 +333,7 @@ fi
 if [[ -z ${githubuser:-} ]]; then
   githubuser=$gitusername
 fi
+
 if [[ -z ${githubuser:-} ]]; then
   echo -e "Missing -u GITHUBUSER!\n"
   showhelp
@@ -342,9 +347,11 @@ if [[ -z ${dirpath:-} ]]; then
   exit 85
 fi
 
-#remove training slash (we'll put it on when checking)
+#remove trailing slash (we'll put it on when checking)
 dirpath=${dirpath%/}
-echo -e "Directory: ${dirpath}"
+if (( $verbose == 1 )); then
+  echo -e "Directory: ${dirpath}"
+fi
 reponame=$(basename "${dirpath}")
 
 API_URL="https://api.github.com/users/${githubuser}/repos?type=owner"
@@ -437,6 +444,7 @@ if (( $verbose == 1 )); then
   git branch -v
 fi
 
+
 # We're in the repo now, so must have a path back to the submitted directory
 # docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
 docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
@@ -455,14 +463,14 @@ description=$(cat "${dirpath}/description")
 
 if [[ README.md ]]; then
 	cat  >> README.md <<-%
-## ${title}  
-*Version ${version} submitted by ${githubuser}*  
+## ${title}
+*Version ${version} submitted by ${githubuser}*
 
 >${description}
 
 %
 
-git add README.md
+  git add README.md
 fi
 
 git add "${reponame}"

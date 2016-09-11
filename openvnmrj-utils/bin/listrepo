@@ -18,7 +18,8 @@
 # limitations under the License.
 #
 # This uses ONE repository (appdirs) in the GitHub OpenVnmrJ organization
-# It'll pull down or update the repository.
+# It'll pull down or update the appdirs repository.
+
 # Each directory will hold one appdir, which then could be enabled or disabled
 
 set -o nounset
@@ -249,6 +250,15 @@ fi
 # All the appdirs are directories so get a lst of all directories
 cd "${repodir}"
 appdirs=$(find . -maxdepth 1 -type d -exec basename {} \; | grep -v "^\.")
+
+# Let's add the openvnmrj-utils appdir to the Application Directories
+#appdirfile="${vnmruser}/persistence/appdir_${USER}"
+#utildir="${ovjhome}/${repo}/openvnmrj-utils"
+#appdiradded=$(grep openvnmrj-utils "${appdirfile}")
+#if [[ -z ${appdiradded} && -d "${utildir}" ]]; then
+#    title=$(head -1 "${utildir}/title")
+#    echo "1;${ovjhome}/appdirs/openvnmrj-utils;${title}" >> "${appdirfile}"
+#fi
 
 # copy license file (required for ovjsubmit)
 cp "${ovjhome}/${repo}/LICENSE" "${ovjhome}/"

@@ -1,4 +1,17 @@
 " ovjapps - macro to handle OpenVnmrJ contributions"
+
+" Licensed under the Apache License, Version 2.0 (the "License"); "
+" you may not use this file except in compliance with the License. "
+" You may obtain a copy of the License at "
+
+"  http://www.apache.org/licenses/LICENSE-2.0 "
+
+" Unless required by applicable law or agreed to in writing, software "
+" distributed under the License is distributed on an 'AS IS' BASIS, "
+" WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied. "
+" See the License for the specific language governing permissions and "
+" limitations under the License. "
+
 $xmlfile=curexp+'/tmpapp.xml'
 $dir=userdir+'/openvnmrj/.extract'
 if ($# = 0) then
@@ -187,6 +200,24 @@ if ($# = 0) then
       />`)  
 
    if (appdirsave[3]<>'1') and (owner=operator) then
+<<<<<<< HEAD
+  $ypos=$ypos+30
+  format($ypos,0,0):$yp
+  write('file',$xmlfile,` \
+    <label loc="50 `+$yp+`" size="150 20" \n\
+      style="Heading2" \n\
+      label="Apply to operators: " \n\
+      />`)
+  write('file',$xmlfile,` \
+    <filemenu loc="205 `+$yp+`" size="140 20" \n\
+      style="Heading2" \n\
+      vq="appdirsave[4]" \n\
+      vq2="appdirsave[4]" \n\
+      vc="appdirsave[4]='$VALUE'" \n\
+      file="$VALUE=userdir+'/persistence/appdirs_oplist'" \n\
+      set="$VALUE=appdirsave[4]" \n\
+      />`)
+=======
 	$ypos=$ypos+30
 	format($ypos,0,0):$yp
 	write('file',$xmlfile,` \
@@ -203,6 +234,7 @@ if ($# = 0) then
 	    file="$VALUE=userdir+'/persistence/appdirs_oplist'" \n\
 	    set="$VALUE=appdirsave[4]" \n\
 	    />`)
+>>>>>>> master
     endif
 */
   
