@@ -244,7 +244,8 @@ else # make directory if necessary and clone
   git fetch --tags
   if [[ ! -z ${localbranch} ]]; then
     git checkout -b ${localbranch} || { echo "error in making new branch ${localbranch}"; exit 1; }
-    git branch --set-upstream-to=origin/${localbranch} ${localbranch} || { echo "error in tracking  branch ${localbranch}"; exit 1; }
+    #git branch --set-upstream-to=origin/${localbranch} ${localbranch} || { echo "error in tracking  branch ${localbranch}"; exit 1; }
+    git branch --set-upstream ${localbranch} origin/${localbranch}  || { echo "error in tracking  branch ${localbranch}"; exit 1; }
   fi
 fi
 # at this point we have a repo in "${repodir}" and on the correct branch
