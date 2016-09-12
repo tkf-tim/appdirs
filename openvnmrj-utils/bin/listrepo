@@ -209,7 +209,8 @@ if [[ -d "${repodir}"/.git ]]; then
   fi
 # repo exists already, just update
   cd "${repodir}" || { echo "cd ${repodir} failed. Aborting"; exit 1; }
-  echo "Updating repository from ${repo_url}"
+  echo "Updating repository from origin"
+  git remote -v
   git show-ref --verify --quiet refs/heads/"${localbranch}"
   if [[ $? == 0 ]]; then
     git pull origin ${localbranch} || { git pull origin master; }
