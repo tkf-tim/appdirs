@@ -44,9 +44,9 @@ Options
     -u
       Github user name, *required* (your username on GitHub)
     -v
-    	Verbose TODO does nothing yet
+    	Verbose
     -H
-      Use https URL. The default is ssh, which requires ssh keys.
+      Use https URL. The default is ssh, which requires ssh keys. https will not work with 2FA
     -U
     	Update existing application directory. See below.
       
@@ -107,16 +107,12 @@ mysub----maclib--macro files
 .......|-bin--executables
 .......|-templates--UX xml files
 .......|-data--test data (FIDs)
-.......|-LICENSE (Apachev2 for inclusion into OpenVnmrJ)
-.......|-description (multiple lines with description of your appdir)
-.......|-title (single line with a human readable name)
+.......|-LICENSE--(Apachev2 for inclusion into OpenVnmrJ)
+.......|-description--(multiple lines with description of your appdir)
+.......|-title--(single line with a human readable name)
 
 In this example, run the script like:
-<<<<<<< HEAD
-./submitcontribution -p pathto/mysub -name mysub -u your-github-name
-=======
 ./submitcontribution -p pathto/mysub -u your-github-name
->>>>>>> master
 
 This script will clone your fork from GitHub, check your files, then add them to the repository.
 Finally, the repository will be pushed back to GitHub using your credentials.
@@ -186,7 +182,9 @@ Check that the URL above is correct and you have correct permissions.
 If the URL starts with ssh, check this website:
 https://help.github.com/articles/generating-ssh-keys/ 
 
-Try using the -H option and an https URL?
+To submit an appdir, you must first submit to your fork, not to OpenVnmrJ
+then make a pull request to the OpenVnmrJ repository.
+
 %%
 }
 
@@ -206,13 +204,15 @@ checkifgit() {
   fi
 
   cd "${1}"/
-
+  if (( $verbose == 1 )); then
+    echo -e "Move to ${curdir}\n"
+  fi
   if [[ $(git rev-parse --is-inside-work-tree 2>/dev/null) == "true" ]]; then
     # we are inside a git repository; perhaps an appdir clone?
     # TODO check if a fork of appdirs, if so push?
     # For now ignore and just work independently, but DO NOT COPY .git!
     if (( $verbose == 1 )); then
-      echo "Directory under git control"
+      echo "Directory ${1} is under git control"
       remotegit=$(git config --get remote.origin.url 2> /dev/null&)
       echo "Checking"
       if [[ -z ${remotegit:-} ]]; then
@@ -220,6 +220,10 @@ checkifgit() {
       else
         echo "Remote is ${remotegit}"
       fi
+    fi
+  else
+    if (( $verbose == 1 )); then
+      echo "Directory ${1} NOT under git control"
     fi
   fi
   cd "${curdir}"
@@ -360,7 +364,8 @@ repos=($(curl -s "$API_URL" | grep -Eo '"git_url": "[^"]+"' | awk '{print $2}' |
 contains "${repo}" "${repos[@]}" || { echo -e "Cannot find ${repo} in list\n${repos[@]}"; showhelp ; exit 1; }
 
 if [[ "OpenVnmrJ" ==  $githubuser ]]; then
-  echo "Please fork the OpenVnmrJ repository on GitHub"
+  echo -e "Please fork the OpenVnmrJ repository on GitHub\n"
+  showhelp
   exit 1
 fi
 
@@ -409,12 +414,15 @@ fi
 
 # Clone the forked appdir in a new (hidden directory) in ovjhome
 repodir="${ovjhome}/.${repo}-${localbranch}"
+
 if [[ -d "${repodir}" ]]; then
+  echo "DELETING existing ${repodir}"
 	rm -rf "${repodir}"
 fi
 
 if (( $verbose == 1 )); then
   echo "Cloning repository from ${repo_url} into ${repodir}"
+  echo "git clone ${repo_url} ${repodir} "
 fi
 git clone ${repo_url} ${repodir} || { badrepo "${repo_url}"; exit 1; }
 cd "${repodir}"/
@@ -425,12 +433,13 @@ git fetch --tags
 if (( $verbose == 1 )); then
   echo "In $(pwd) with git show-ref --verify refs/heads/${localbranch}"
 fi
-git show-ref --verify refs/heads/"${localbranch}" 2> /dev/null
+git show-ref --verify --quiet refs/heads/"${localbranch}"
 if [[ $? != 0 ]]; then
   if (( $verbose == 1 )); then
     echo "checking out new branch ${localbranch}"
   fi
   git checkout -b ${localbranch} || { echo "Making branch ${localbranch} failed. Aborting"; exit 1; }
+  git pull origin ${localbranch}
   localbranchmade=1
 else
 	git checkout  ${localbranch} || { echo "Checking out branch ${localbranch} failed. Aborting"; exit 1; }
