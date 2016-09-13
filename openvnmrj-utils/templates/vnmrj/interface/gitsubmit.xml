@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 <template name="git2" element="groups" type="sample" >
-  <group size="570 485"
+  <group size="610 485"
     style="Heading1"
     label="OpenVnmrJ submission"
     border="Etched"
@@ -16,7 +16,7 @@
     rows="1"
     columns="1"
     >
-    <textfile loc="10 305" size="545 160"
+    <textfile loc="10 385" size="545 160"
       style="PlainText"
       vq="curexp"
       set="$VALUE=curexp+'/submitlog'"
@@ -24,7 +24,7 @@
       wrap="yes"
       units="char"
       />
-    <button loc="10 265" size="140 25"
+    <button loc="10 305" size="140 25"
       style="PlainText"
       label="Submit Application"
       vc="ovjsubmit('save',1)"
@@ -47,14 +47,21 @@
       set="$VALUE=gitDir"
       disable="Label"
       />
-    <entry loc="150 75" size="400 20"
+    <entry loc="150 115" size="400 20"
       style="PlainText"
       vq="gitUser"
       vc="gitUser='$VALUE'"
       set="$VALUE=gitUser"
       disable="Label"
       />
-    <textfile loc="10 125" size="545 125"
+    <entry loc="150 85" size="400 20"
+      style="PlainText"
+      vq="gitTag"
+      vc="gitTag='$VALUE'"
+      set="$VALUE=gitTag"
+      disable="Label"
+      />
+    <textfile loc="10 165" size="545 125"
       style="PlainText"
       vq="gitDir"
       set="$VALUE=gitDir+'/description'"
@@ -66,7 +73,7 @@
       style="Label1"
       label="Title"
       />
-    <label loc="10 105" size="90 20"
+    <label loc="10 145" size="90 20"
       style="Label1"
       label="Description:"
       />
@@ -74,9 +81,13 @@
       style="Label1"
       label="Path to appdir"
       />
-    <label loc="10 75" size="140 20"
+    <label loc="10 115" size="140 20"
       style="Label1"
       label="GitHub Username"
+      />
+    <label loc="10 85" size="140 20"
+      style="Label1"
+      label="Tag (e.g. v1.0)"
       />
   </group>
 </template>

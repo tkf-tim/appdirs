@@ -31,12 +31,15 @@ if ($# < 2) then
   create('gitDir','string','global',''):$e
   create('gitTitle','string','global',''):$e
   create('gitUser','string','global',''):$e
+  create('gitTag','string','global',''):$e
   setgroup('gitDir','display','global')
   setgroup('gitTitle','display','global')
   setgroup('gitUser','display','global')
+  setgroup('gitTag','display','global')
   setprotect('gitDir','on',32768,'global')
   setprotect('gitTitle','on',32768,'global')
   setprotect('gitUser','on',32768,'global')
+  setprotect('gitTag','on',32768,'global')
   if ($#=1) then
     gitDir=$1
     exists(gitDir+'/description','file'):$e
@@ -93,14 +96,15 @@ else
     write('reset',gitDir+'/title')
     write('file',gitDir+'/title','%s',gitTitle)
     getbinpath('submitcontribution'):$e,$path
-    // shell($path + ' -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    // shell($path + ' -u ' + gitUser + ' -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
     // The -v option turns on the verbose flag for submitcontribution
-    shell($path + ' -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    shell($path + ' -u ' + gitUser + ' -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
     vnmrjcmd('pnew','curexp')
   elseif ($1 = 'close') then
     destroy('gitDir','global'):$e
     destroy('gitTitle','global'):$e
     destroy('gitUser','global'):$e
+    destroy('gitTag','global'):$e
     exists(curexp+'/description','file'):$e
     if ($e) then
       delete(curexp+'/description'):$e
