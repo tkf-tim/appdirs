@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 <template name="git2" element="groups" type="sample" >
-  <group size="630 485"
+  <group size="570 525"
     style="Heading1"
     label="OpenVnmrJ submission"
     border="Etched"
