@@ -96,9 +96,9 @@ else
     write('reset',gitDir+'/title')
     write('file',gitDir+'/title','%s',gitTitle)
     getbinpath('submitcontribution'):$e,$path
-    // shell($path + ' -u ' + gitUser + ' -t ' + gitTag + ' -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    shell($path + ' -u ' + gitUser + ' -t ' + gitTag + ' -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
     // The -v option turns on the verbose flag for submitcontribution
-    shell($path + ' -u ' + gitUser + ' -t ' + gitTag + ' -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    // shell($path + ' -u ' + gitUser + ' -t ' + gitTag + ' -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
     vnmrjcmd('pnew','curexp')
   elseif ($1 = 'close') then
     destroy('gitDir','global'):$e
