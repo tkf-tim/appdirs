@@ -47,7 +47,7 @@ if ($# < 2) then
       copy(gitDir+'/description',curexp+'/description')
     endif
   endif
-  shell('head -1 " + gitDir + "/title'):gitTitle
+  shell('head -1 ' + gitDir + '/title'):gitTitle
   exists(curexp+'/submitlog','file'):$e
   if ($e) then
     delete(curexp+'/submitlog'):$e
