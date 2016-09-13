@@ -37,26 +37,3 @@ See the License.md file for more information.
 
 ##Disclaimer
 To the fullest extent allowed by law, the work is provided "as-is" with no warrantees whatsoever, either expressed or implied, oral or written. Agilent specifically disclaims any warrantees of merchantability or fitness for a particular purpose. This work is not a manufacturer's release version. All disputes will be heard in the courts of California.
-## Blank Appdir
-*Version 0.2 submitted by tkf-tim*
-
->blank—A Blank Appdir
-
-This is a blank appdir to be used as a template
-
-An appdir should have a LICENSE file, two text files—title and description—and several directories like this:
-
-mysub----maclib--macro files
-.......|-manual--manual files
-.......|-psglib--pulse sequences (.c files)
-.......|-parlib--parameter files for pulse sequences
-.......|-bin--executables
-.......|-templates--UX xml files
-.......|-data--test data (FIDs)
-.......|-LICENSE--(Apachev2 for inclusion into OpenVnmrJ)
-.......|-description--(multiple lines with description of your appdir)
-.......|-title--(single line with a human readable name)
-
-This example has empty files named blank in each directory because git skips empty directories.
-Delete the blank files if you copy this template.
-
