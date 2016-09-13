@@ -47,8 +47,6 @@ Options
     	Verbose
     -H
       Use https URL. The default is ssh, which requires ssh keys. https will not work with 2FA
-    -U
-    	Update existing application directory. See below.
       
 License
 =======
@@ -81,10 +79,10 @@ If you used a branch other than development, specify it using the -b switch.
 
 Updating
 ========
-If an application directory with the same name already exists, this script will exit
-unless the U flag is given to update the application directory.
+If an application directory with the same name already exists, this script will
+update the repository.
 
-Update the tag to indicate a new version, for example -t 1.1
+Please update the tag to indicate a new version, for example -t 1.1
 
 Submitting
 ==========
@@ -236,13 +234,11 @@ docopy() {
   local src=${1}
   local dest=${2}
   local reponame=${3}
-  local update=${4}
 
 # first check if dest already exists
   if [[ -d "${dest}/${reponame}" ]]; then
-    if (( ${update} == 0 )); then
-      echo "Directory with name ${reponame} already exists! Use -U to update"
-      exit 1
+    if (( $verbose == 1 )); then
+      echo "Directory with name ${reponame} already exists: Updating. Please use a new tag"
     fi
       # update using rsync (no / at end of src!)
     if (( $verbose == 1 )); then
@@ -268,7 +264,6 @@ version="1.0"
 useHTTPS=0
 localbranchmade=0
 verbose=0
-update=0
 repo="appdirs"
 localbranch="development"
 
@@ -280,7 +275,7 @@ fi
 
 if [[ $? != 0 ]] ; then showhelp; exit 1 ; fi
 
-while getopts “b:r:p:u:vhHt:U” option; do
+while getopts “b:r:p:u:vhHt:” option; do
   case "$option" in
     b)
       # branch to use, if not specified, uses development
@@ -310,10 +305,6 @@ while getopts “b:r:p:u:vhHt:U” option; do
       # use https URL. The default is ssh.
       useHTTPS=1
       ;;
-    U)
-      # Update existing appdir
-      update=1
-      ;;
     v)
       verbose=1
       ;;     
@@ -333,17 +324,15 @@ if [[ -z ${gitusername:-} || -z ${gitemail:-} ]]; then
   exit 1
 fi
 
-# check inputs are good
-if [[ -z ${githubuser:-} ]]; then
-  githubuser=$gitusername
-fi
-
 if [[ -z ${githubuser:-} ]]; then
   echo -e "Missing -u GITHUBUSER!\n"
   showhelp
   exit 85
 fi
-echo "githubuser: ${githubuser}"
+
+if (( $verbose == 1 )); then
+  echo "Using githubuser: ${githubuser}"
+fi
 
 if [[ -z ${dirpath:-} ]]; then
   echo -e "Missing -p path to directory!\n"
@@ -456,7 +445,7 @@ fi
 
 # We're in the repo now, so must have a path back to the submitted directory
 # docopy "${curdir}/${dirpath}" "${repodir}" "${reponame}" ${update}
-docopy "${dirpath}" "${repodir}" "${reponame}" ${update}
+docopy "${dirpath}" "${repodir}" "${reponame}"
 
 # sign our commit and tag if possible
 gitsignkey=$(git config --global --get user.signingkey)
@@ -464,13 +453,13 @@ if [[ -z ${gitsignkey} ]]; then
   tagswitch="-a"
   commitswitch="-m"
 else
-  tagswitch="-a" # -s for pgp
-  commitswitch="-m" # -S -m for pgp
+  tagswitch="-s" # -s for pgp
+  commitswitch="-S -m" # -S -m for pgp
 fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
 
-if [[ README.md ]]; then
+if [[ -f "${dirpath}/README.md" ]]; then
 	cat  >> README.md <<-%
 ## ${title}
 *Version ${version} submitted by ${githubuser}*

@@ -92,9 +92,10 @@ else
     copy($lpath,gitDir+'/LICENSE')
     write('reset',gitDir+'/title')
     write('file',gitDir+'/title','%s',gitTitle)
-    shell('submitcontribution -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    getbinpath('submitcontribution'):$e,$path
+    // shell($path + ' -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
     // The -v option turns on the verbose flag for submitcontribution
-    // shell('submitcontribution -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
+    shell($path + ' -v -p "'+gitDir+'" >& '+curexp+'/submitlog'):$dum
     vnmrjcmd('pnew','curexp')
   elseif ($1 = 'close') then
     destroy('gitDir','global'):$e
