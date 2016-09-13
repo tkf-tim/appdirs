@@ -451,10 +451,10 @@ docopy "${dirpath}" "${repodir}" "${reponame}"
 gitsignkey=$(git config --global --get user.signingkey)
 if [[ -z ${gitsignkey} ]]; then
   tagswitch="-a"
-  commitswitch="-m"
+  commitswitch="-a "
 else
   tagswitch="-s" # -s for pgp
-  commitswitch="-S -m" # -S -m for pgp
+  commitswitch="-S -a " # -S -m for pgp
 fi
 title=$(cat "${dirpath}/title")
 description=$(cat "${dirpath}/description")
@@ -476,7 +476,7 @@ if (( $verbose == 1 )); then
   echo -e "git commit ${commitswitch} ${reponame} -m ${title}\n"
 fi
 
-git commit ${commitswitch} "${reponame}" -m "${title}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
+git commit ${commitswitch}  -m "${reponame} ${title} ${version}"  || { echo "git commit could not be made. Please look at the error message"; exit 1; }
 
 git tag ${tagswitch} "${reponame}-${version}" -m "${description}"
 
