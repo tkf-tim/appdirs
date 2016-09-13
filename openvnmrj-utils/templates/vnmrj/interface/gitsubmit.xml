@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 
 <template name="git2" element="groups" type="sample" >
-  <group size="610 485"
+  <group size="630 485"
     style="Heading1"
     label="OpenVnmrJ submission"
     border="Etched"
@@ -16,7 +16,7 @@
     rows="1"
     columns="1"
     >
-    <textfile loc="10 385" size="545 160"
+    <textfile loc="10 345" size="545 160"
       style="PlainText"
       vq="curexp"
       set="$VALUE=curexp+'/submitlog'"
